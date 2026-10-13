@@ -1,0 +1,341 @@
+@use '~@kne/responsive-utils/scss' as resp;
+
+.create-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+
+  :global(.react-form),
+  :global(.react-form > span),
+  :global(.react-form > span > .ant-flex) {
+    flex: 1;
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    min-height: 0;
+  }
+}
+
+.section {
+  max-width: 880px;
+  width: 100%;
+  margin-right: auto;
+  margin-left: auto;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  box-sizing: border-box;
+}
+
+.form-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+  margin-top: auto;
+  box-sizing: border-box;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.04);
+}
+
+.template-table {
+  width: 100%;
+}
+
+.template-modal {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  padding-left: 272px;
+}
+
+.template-meta {
+  box-sizing: border-box;
+  width: 100%;
+
+  :global(.ant-card) {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+}
+
+.template-designer {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 560px;
+  margin-top: 16px;
+
+  :global([class*='kne-form-creator'].kne-responsive-boundary) {
+    flex-wrap: nowrap !important;
+    width: 100%;
+  }
+
+  :global([class*='kne-form-creator'].kne-responsive-boundary) > :nth-child(1),
+  :global([class*='kne-form-creator'].kne-responsive-boundary) > :nth-child(2) {
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    flex: 1 1 0 !important;
+    flex-basis: 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}
+
+.template-modal .template-designer {
+  width: calc(100% + 272px);
+  margin-left: -272px;
+
+  :global(.react-form__field-input) {
+    position: static;
+  }
+
+  :global([class*='form-creator-shell-with-templates__']) {
+    box-sizing: border-box;
+    width: 100%;
+    padding-left: 272px;
+  }
+
+  :global([class*='template-pane__']) {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 260px !important;
+    max-width: 260px !important;
+    height: auto !important;
+  }
+}
+
+.template-divider {
+  margin: 4px 0;
+}
+
+.template-create {
+  padding: 4px 8px;
+}
+
+.detail-page {
+  width: 100%;
+}
+
+.ticket-summary {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  margin-top: 16px;
+
+  :global(.react-form) {
+    flex: 1;
+    min-width: 280px;
+  }
+}
+
+.summary-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-bottom: 6px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 72px;
+}
+
+.summary-label {
+  font-size: 12px;
+  color: rgba(17, 24, 39, 0.45);
+}
+
+.summary-assign {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 1;
+  min-width: 280px;
+
+  :global(.react-form__field) {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0 !important;
+  }
+
+  :global(.react-form__field-label) {
+    margin-bottom: 6px !important;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    line-height: 20px !important;
+    color: rgba(17, 24, 39, 0.45) !important;
+  }
+
+  :global(.react-form__field-input),
+  :global(.react-form__field-component) {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  :global(.ant-btn) {
+    flex: none;
+    width: auto !important;
+    height: 32px;
+    margin: 0 0 1px !important;
+    padding: 0 16px;
+    letter-spacing: 0;
+  }
+}
+
+.comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.comment {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.comment-author {
+  font-weight: 600;
+}
+
+.comment-time {
+  color: rgba(17, 24, 39, 0.45);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.comment-head .comment-time {
+  margin-left: auto;
+}
+
+.comment-mention {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(17, 24, 39, 0.55);
+}
+
+.comment-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(17, 24, 39, 0.08);
+
+  :global(.ant-row) {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  :global(.ant-col) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    max-width: 100%;
+  }
+
+  :global(.react-form__field-component) {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+.comment-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+
+  :global(.ant-btn) {
+    width: auto;
+  }
+}
+
+.comment-body {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.event {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.section-title {
+  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(17, 24, 39, 0.88);
+}
+
+@include resp.mobile-container {
+  .ticket-summary {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .summary-assign {
+    width: 100%;
+  }
+
+  .section {
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .template-modal {
+    padding-left: 0;
+  }
+
+  .template-meta {
+    width: 100%;
+  }
+
+  .template-modal .template-designer {
+    width: 100%;
+    margin-left: 0;
+
+    :global([class*='form-creator-shell-with-templates__']) {
+      padding-left: 0;
+    }
+
+    :global([class*='template-pane__']) {
+      position: static;
+      top: auto;
+      bottom: auto;
+      left: auto;
+      width: 100% !important;
+      max-width: none !important;
+      height: auto !important;
+    }
+  }
+}

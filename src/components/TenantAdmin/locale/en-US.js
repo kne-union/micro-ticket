@@ -1,0 +1,19 @@
+export default {
+  TenantMenuDashboard: 'Dashboard',
+  TenantMenuTicket: 'Tickets',
+  TenantMenuChat: 'Messages',
+  TenantMenuTemplate: 'Ticket templates',
+  TenantMenuCompleteTemplate: 'Completion templates',
+  TenantMenuSupplementTemplate: 'Supplement templates',
+  TenantMenuSample: 'Sample',
+  TenantMenuSetting: 'Settings',
+  TenantMenuCompany: 'Company',
+  TenantMenuGroup: 'Organization',
+  TenantMenuUser: 'Users',
+  TenantMenuPermission: 'Permissions',
+  TenantMenuAccount: 'Account',
+  TenantMenuSwitchTenant: 'Switch Tenant',
+  TenantMenuLogout: 'Logout',
+  TenantDashboardTitle: 'Dashboard',
+  TenantDashboardDescription: 'Tenant portal placeholder home. Extend business modules here.'
+};

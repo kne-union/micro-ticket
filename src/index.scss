@@ -1,0 +1,9 @@
+.navigation-list > .ant-menu {
+  justify-content: center;
+}
+
+/* 移动端选人半屏挂在被内容撑高的 boundary 上时，absolute 会落到页面底部视口外。
+   多写一层 class，压过组件库 .kne-is-boundary { position: absolute !important }。 */
+.kne-is-boundary.kne-is-boundary[class*='kne-super-select'] {
+  position: fixed !important;
+}

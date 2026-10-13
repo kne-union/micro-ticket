@@ -1,0 +1,117 @@
+{
+  "description": "系统异常、页面报错、功能不可用",
+  "schema": {
+    "title": "故障报修",
+    "subtitle": "",
+    "column": 1,
+    "gap": 24,
+    "blocks": [
+      {
+        "id": "block_故障报修",
+        "kind": "formInfo",
+        "title": "故障报修",
+        "subtitle": "",
+        "column": 1,
+        "gap": 24,
+        "bordered": true,
+        "important": false,
+        "showIndex": true,
+        "name": "",
+        "label": "",
+        "addText": "",
+        "fieldType": "Input",
+        "autoStep": true,
+        "mode": "single",
+        "selectorName": "",
+        "selectorInData": true,
+        "list": [
+          {
+            "id": "field_systemName",
+            "type": "Input",
+            "name": "systemName",
+            "label": "涉及系统",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_happenedAt",
+            "type": "Input",
+            "name": "happenedAt",
+            "label": "发生时间",
+            "tips": "",
+            "description": "例如 2026-10-13 14:20",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_impact",
+            "type": "RadioGroup",
+            "name": "impact",
+            "label": "影响范围",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {
+              "options": [
+                {
+                  "label": "仅本人",
+                  "value": "仅本人"
+                },
+                {
+                  "label": "本部门",
+                  "value": "本部门"
+                },
+                {
+                  "label": "全部客户",
+                  "value": "全部客户"
+                }
+              ]
+            }
+          },
+          {
+            "id": "field_summary",
+            "type": "TextArea",
+            "name": "summary",
+            "label": "现象描述",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_requestId",
+            "type": "Input",
+            "name": "requestId",
+            "label": "请求号或截图说明",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          }
+        ]
+      }
+    ],
+    "actions": {
+      "showSubmit": false,
+      "showReset": false,
+      "showCancel": false,
+      "submitText": "",
+      "resetText": "",
+      "cancelText": "",
+      "align": "center",
+      "gap": 16
+    }
+  }
+}

@@ -1,0 +1,19 @@
+export default {
+  TenantMenuDashboard: '工作台',
+  TenantMenuTicket: '工单',
+  TenantMenuChat: '消息',
+  TenantMenuTemplate: '工单模板',
+  TenantMenuCompleteTemplate: '完成模板',
+  TenantMenuSupplementTemplate: '补充模板',
+  TenantMenuSample: '示例模块',
+  TenantMenuSetting: '设置',
+  TenantMenuCompany: '公司信息',
+  TenantMenuGroup: '组织架构',
+  TenantMenuUser: '用户管理',
+  TenantMenuPermission: '权限管理',
+  TenantMenuAccount: '账户',
+  TenantMenuSwitchTenant: '切换租户',
+  TenantMenuLogout: '退出登录',
+  TenantDashboardTitle: '工作台',
+  TenantDashboardDescription: '这是 Tenant 端占位首页，可在此扩展业务模块。'
+};

@@ -1,0 +1,11 @@
+{
+  "includeTenantAdmin": true,
+  "tenantAdminLayout": "layout",
+  "includeTenantClient": true,
+  "tenantClientLayout": "system-layout",
+  "includeClient": false,
+  "clientLayout": "system-layout",
+  "includeOss": false,
+  "includeDingtalk": false,
+  "includeWecom": false
+}

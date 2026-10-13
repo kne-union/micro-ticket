@@ -1,0 +1,105 @@
+{
+  "description": "开通、停用、改权限",
+  "schema": {
+    "title": "账号与权限",
+    "subtitle": "",
+    "column": 1,
+    "gap": 24,
+    "blocks": [
+      {
+        "id": "block_账号与权限",
+        "kind": "formInfo",
+        "title": "账号与权限",
+        "subtitle": "",
+        "column": 1,
+        "gap": 24,
+        "bordered": true,
+        "important": false,
+        "showIndex": true,
+        "name": "",
+        "label": "",
+        "addText": "",
+        "fieldType": "Input",
+        "autoStep": true,
+        "mode": "single",
+        "selectorName": "",
+        "selectorInData": true,
+        "list": [
+          {
+            "id": "field_account",
+            "type": "Input",
+            "name": "account",
+            "label": "账号（邮箱）",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_systemName",
+            "type": "Input",
+            "name": "systemName",
+            "label": "系统",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_action",
+            "type": "RadioGroup",
+            "name": "action",
+            "label": "申请类型",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {
+              "options": [
+                {
+                  "label": "开通",
+                  "value": "开通"
+                },
+                {
+                  "label": "调整权限",
+                  "value": "调整权限"
+                },
+                {
+                  "label": "停用",
+                  "value": "停用"
+                }
+              ]
+            }
+          },
+          {
+            "id": "field_reason",
+            "type": "TextArea",
+            "name": "reason",
+            "label": "原因与所需权限",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          }
+        ]
+      }
+    ],
+    "actions": {
+      "showSubmit": false,
+      "showReset": false,
+      "showCancel": false,
+      "submitText": "",
+      "resetText": "",
+      "cancelText": "",
+      "align": "center",
+      "gap": 16
+    }
+  }
+}
