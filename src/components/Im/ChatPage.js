@@ -4,7 +4,7 @@ import { MessageInput, MessageList } from '@kne/react-bot';
 import '@kne/react-bot/dist/index.css';
 import { MOBILE_BREAKPOINT, useIsMobile } from '@kne/responsive-utils';
 import { Page } from '@kne/system-layout';
-import { Button, Segmented, message as toast } from 'antd';
+import { Badge, Button, Segmented, message as toast } from 'antd';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import TicketDetailPage from '../Ticket/TicketDetailPage';
 import { openImSocket, refreshImUnread, sendSocket } from './socket';
@@ -45,10 +45,16 @@ const ChatPage = createWithRemoteLoader({
   const [thread, setThread] = useState(null);
   const [messages, setMessages] = useState([]);
   const [members, setMembers] = useState([]);
+  const [conversations, setConversations] = useState([]);
 
   const loadNotices = async () => {
     const { data } = await ajax({ url: '/api/v1/im/system-messages', params: { page: 1, pageSize: 20 } });
     setNotices(data?.data?.list || []);
+  };
+
+  const loadConversations = async () => {
+    const { data } = await ajax({ url: '/api/v1/im/conversations', params: { page: 1, pageSize: 100 } });
+    setConversations(data?.data?.list || []);
   };
 
   const markNoticeRead = item => {
@@ -119,6 +125,7 @@ const ChatPage = createWithRemoteLoader({
       }
     });
     loadNotices();
+    loadConversations();
     const socket = openImSocket(event => {
       if (event.type === 'error') {
         toast.error(event.payload?.message || '消息发送失败');
@@ -126,6 +133,10 @@ const ChatPage = createWithRemoteLoader({
       }
       if (event.type === 'systemMessage') {
         loadNotices();
+        return;
+      }
+      if (event.type === 'unreadCountUpdated') {
+        loadConversations();
         return;
       }
       if (event.type === 'newMessage' || event.type === 'sendMessageSuccess') {
@@ -175,7 +186,10 @@ const ChatPage = createWithRemoteLoader({
       lastReadRef.current = key;
       sendSocket(socket, 'readMessages', { conversationId: activeId, lastMessageId: last.id });
       // readMessages 没有回执，稍等服务端落库后再刷新导航未读数
-      setTimeout(refreshImUnread, 500);
+      setTimeout(() => {
+        refreshImUnread();
+        loadConversations();
+      }, 500);
     };
     if (socket?.readyState === WebSocket.OPEN) {
       markRead();
@@ -192,6 +206,21 @@ const ChatPage = createWithRemoteLoader({
     });
     return map;
   }, [members]);
+
+  const unreadByUser = useMemo(() => {
+    const map = {};
+    conversations.forEach(conversation => {
+      if (conversation.type !== 'single' || !conversation.unreadCount) {
+        return;
+      }
+      (conversation.members || []).forEach(member => {
+        if (String(member.userId) !== String(me?.id || '')) {
+          map[member.userId] = (map[member.userId] || 0) + conversation.unreadCount;
+        }
+      });
+    });
+    return map;
+  }, [conversations, me]);
 
   const people = colleagues.filter(item => String(item.userId || '') !== String(me?.id || ''));
   const narrow = layoutMobile || pageNarrow;
@@ -322,6 +351,7 @@ const ChatPage = createWithRemoteLoader({
                 people.map(item => {
                   const name = item.name || item.email || '同事';
                   const active = thread?.kind === 'chat' && thread.key === item.id;
+                  const unread = active ? 0 : unreadByUser[item.userId] || 0;
                   return (
                     <button key={item.id} type="button" className={`${style.row}${active ? ` ${style.active}` : ''}`} onClick={() => openChat(item)}>
                       <span className={style.avatar} style={{ background: colorOf(name) }}>
@@ -331,6 +361,7 @@ const ChatPage = createWithRemoteLoader({
                         <span className={style.name}>{name}</span>
                         <span className={style.preview}>{item.email || item.options?.position || '同事'}</span>
                       </span>
+                      {unread ? <Badge count={unread} overflowCount={99} /> : null}
                     </button>
                   );
                 })
