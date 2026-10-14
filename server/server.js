@@ -128,11 +128,27 @@ const createServer = () => {
 
   fastify.register(
     require('fastify-plugin')(async fastify => {
+      const { OSS_REGION, OSS_BUCKET, OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET } = fastify.config;
+      const ossEnabled = !!(OSS_REGION && OSS_BUCKET && OSS_ACCESS_KEY_ID && OSS_ACCESS_KEY_SECRET);
 
       fastify.register(require('@kne/fastify-file-manager'), {
         prefix: `${options.prefix}/static`,
-        root: path.resolve('./static')
+        root: path.resolve('./static'),
+        ossAdapter: () => (ossEnabled ? fastify.aliyun.services.oss : {})
       });
+
+      if (ossEnabled) {
+        fastify.register(require('@kne/fastify-aliyun'), {
+          prefix: `${options.prefix}/aliyun`,
+          oss: {
+            baseDir: 'micro-ticket',
+            region: OSS_REGION,
+            accessKeyId: OSS_ACCESS_KEY_ID,
+            accessKeySecret: OSS_ACCESS_KEY_SECRET,
+            bucket: OSS_BUCKET
+          }
+        });
+      }
     })
   );
 

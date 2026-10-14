@@ -16,9 +16,9 @@ const STATUS_TAG = {
 };
 
 const TicketListPage = createWithRemoteLoader({
-  modules: ['components-admin:BizUnit', 'components-core:Filter', 'components-core:StateBar', 'components-core:Global@usePreset', 'components-core:FlexBox']
+  modules: ['components-admin:BizUnit', 'components-core:Filter', 'components-core:Global@usePreset', 'components-core:FlexBox']
 })(({ remoteModules, layoutType = 'layout', mode = 'client', baseUrl }) => {
-  const [BizUnit, Filter, StateBar, usePreset, FlexBox] = remoteModules;
+  const [BizUnit, Filter, usePreset, FlexBox] = remoteModules;
   const { TablePageRender } = BizUnit;
   const { SuperSelectFilterItem } = Filter.fields;
   const { ajax } = usePreset();
@@ -81,6 +81,12 @@ const TicketListPage = createWithRemoteLoader({
       getValueOf: item => ({ type: 'processing', text: labelOf(PRIORITY_OPTIONS, item.priority) })
     },
     {
+      name: 'sla',
+      title: 'SLA',
+      renderType: 'tag',
+      getValueOf: item => item.sla || { type: 'default', text: '-' }
+    },
+    {
       name: 'overdue',
       title: '时效',
       renderType: 'tag',
@@ -131,16 +137,33 @@ const TicketListPage = createWithRemoteLoader({
 
   const list = (
     <BizUnit
-      key={mode === 'client' ? scope : 'manage'}
       isNext
       name="ticket"
       apis={{
         list: {
           url: listUrl,
-          method: 'GET',
-          ...(mode === 'client' ? { params: { scope } } : {})
+          method: 'GET'
         }
       }}
+      onFilterChange={
+        mode === 'client'
+          ? value => {
+              const entry = (Array.isArray(value) ? value : []).find(item => item?.name === 'scope');
+              const nextScope = entry?.value?.value || 'all';
+              setSearchParams(
+                prev => {
+                  if (prev.get('scope') === nextScope) {
+                    return prev;
+                  }
+                  const next = new URLSearchParams(prev);
+                  next.set('scope', nextScope);
+                  return next;
+                },
+                { replace: true }
+              );
+            }
+          : undefined
+      }
       getColumns={getColumns}
       getActionList={({ data }) => [
         {
@@ -149,12 +172,36 @@ const TicketListPage = createWithRemoteLoader({
           onClick: () => navigate(`${baseUrl}/ticket/${data.id}`)
         }
       ]}
-      filter={{ list: filterList }}
+      filter={{
+        list: filterList,
+        ...(mode === 'client' && scope !== 'all'
+          ? {
+              defaultValue: [
+                {
+                  name: 'scope',
+                  label: '范围',
+                  value: { value: scope, label: scope === 'created' ? '我发起的' : '指派给我的' }
+                }
+              ]
+            }
+          : {})
+      }}
       page={layoutType === 'system-layout' ? undefined : { title }}
       options={{
         bizName: '工单',
         keywordFilterName: 'keyword',
         keywordFilterLabel: '标题',
+        ...(mode === 'client'
+          ? {
+              mapFilterValue: (value, getFilterValue) => {
+                const mapped = getFilterValue(value || []);
+                if (mapped.scope == null || mapped.scope === '') {
+                  mapped.scope = 'all';
+                }
+                return mapped;
+              }
+            }
+          : {}),
         tableProps: {
           pagination: { paramsType: 'params', currentName: 'currentPage', pageSizeName: 'perPage' },
           renderCard: renderTicketCards({ FlexBox, variant: 'card', onOpen: item => navigate(`${baseUrl}/ticket/${item.id}`) }),
@@ -162,39 +209,41 @@ const TicketListPage = createWithRemoteLoader({
         }
       }}
     >
-      {layoutType === 'system-layout' ? renderProps => <TablePageRender {...renderProps} withPage={false} /> : undefined}
+      {layoutType === 'system-layout'
+        ? renderProps => (
+            <TablePageRender
+              {...renderProps}
+              withPage={false}
+              tableOptions={
+                mode === 'client'
+                  ? {
+                      ...renderProps.tableOptions,
+                      tab: {
+                        name: 'scope',
+                        label: '范围',
+                        list: [
+                          { label: '指派给我的', value: 'assigned' },
+                          { label: '我发起的', value: 'created' }
+                        ]
+                      },
+                      tabProps: {
+                        tabBarExtraContent: (
+                          <Button type="primary" onClick={() => navigate(`${baseUrl}/ticket/create`)}>
+                            新建工单
+                          </Button>
+                        )
+                      }
+                    }
+                  : renderProps.tableOptions
+              }
+            />
+          )
+        : undefined}
     </BizUnit>
   );
 
-  const tabs =
-    mode === 'client' ? (
-      <StateBar
-        activeKey={scope}
-        onChange={key => {
-          const next = new URLSearchParams(searchParams);
-          next.set('scope', key);
-          setSearchParams(next);
-        }}
-        tabBarExtraContent={
-          <Button type="primary" onClick={() => navigate(`${baseUrl}/ticket/create`)}>
-            新建工单
-          </Button>
-        }
-        stateOption={[
-          { key: 'all', tab: '全部' },
-          { key: 'assigned', tab: '指派给我的' },
-          { key: 'created', tab: '我发起的' }
-        ]}
-      />
-    ) : null;
-
   if (layoutType === 'system-layout') {
-    return (
-      <Page title={title}>
-        {tabs}
-        {list}
-      </Page>
-    );
+    return <Page title={title}>{list}</Page>;
   }
 
   return list;

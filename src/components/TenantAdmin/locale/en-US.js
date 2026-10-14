@@ -5,6 +5,7 @@ export default {
   TenantMenuTemplate: 'Ticket templates',
   TenantMenuCompleteTemplate: 'Completion templates',
   TenantMenuSupplementTemplate: 'Supplement templates',
+  TenantMenuSla: 'SLA',
   TenantMenuSample: 'Sample',
   TenantMenuSetting: 'Settings',
   TenantMenuCompany: 'Company',

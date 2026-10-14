@@ -20,6 +20,20 @@ const FIXED_KEYS = ['title', 'priority', 'templateId', 'expectAt', 'attachments'
 
 const personIds = value => (Array.isArray(value) ? value : value ? [value] : []).map(item => (item && typeof item === 'object' ? item.id || item.value : item)).filter(Boolean);
 
+const schemaOf = value => {
+  if (value && typeof value === 'object') {
+    return value;
+  }
+  if (typeof value === 'string' && value) {
+    try {
+      return JSON.parse(value);
+    } catch (error) {
+      return null;
+    }
+  }
+  return null;
+};
+
 const TicketCreatePage = createWithRemoteLoader({
   modules: [
     'components-core:Global@usePreset',
@@ -39,42 +53,49 @@ const TicketCreatePage = createWithRemoteLoader({
   const memberApis = useMemo(() => buildMemberSelectApis(ajax, apis), [ajax, apis]);
   const { global } = useGlobalContext('userInfo');
   const companyName = global?.tenant?.name || '';
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const formModal = useFormModal();
   const formApiRef = useRef(null);
   const schemaRef = useRef(null);
+  const pickerRef = useRef({ close: null, reload: null });
   const PageView = layoutType === 'system-layout' ? Page : CorePage;
   const [current, setCurrent] = useState(null);
 
-  const openCreateTemplate = reload => {
-    schemaRef.current = null;
+  const openTemplateEditor = (record, reload) => {
+    schemaRef.current = schemaOf(record?.schema);
     formModal({
-      title: '新建模板',
+      title: record ? '编辑模板' : '新建模板',
       size: 'large',
       width: 'calc(100vw - 48px)',
       okText: '保存模板',
       formProps: {
-        data: { parentId: null },
+        data: {
+          name: record?.name || '',
+          parentId: record?.parentId || null
+        },
         onSubmit: async values => {
           try {
-            const created = unwrap(
+            const saved = unwrap(
               await ajax({
                 url: '/api/v1/ticket/template/save',
                 method: 'POST',
                 data: {
+                  id: record?.id,
                   name: values.name,
                   parentId: parentIdOf(values.parentId),
-                  enabled: true,
+                  enabled: record ? record.enabled !== false : true,
                   schema: schemaRef.current
                 }
               })
             );
-            setCurrent(created);
-            formApiRef.current?.setFields([{ name: 'templateId', value: [created] }]);
+            if (!record || current?.id === record.id) {
+              setCurrent(saved);
+              formApiRef.current?.setFields([{ name: 'templateId', value: [saved] }]);
+            }
             reload?.();
-            message.success('模板已创建');
+            message.success(record ? '模板已保存' : '模板已创建');
           } catch (error) {
             message.error(error.message);
             return false;
@@ -83,11 +104,33 @@ const TicketCreatePage = createWithRemoteLoader({
       },
       children: (
         <TemplateCreateBody
+          key={record?.id || 'create'}
+          initialSchema={schemaOf(record?.schema)}
           onSchema={schema => {
             schemaRef.current = schema;
           }}
         />
       )
+    });
+  };
+
+  const openCreateTemplate = reload => openTemplateEditor(null, reload);
+
+  const removeTemplate = (record, reload) => {
+    modal.confirm({
+      title: `删除「${record.name}」？`,
+      content: '已提交的工单不受影响。',
+      okText: '删除',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        unwrap(await ajax({ url: '/api/v1/ticket/template/remove', method: 'POST', data: { id: record.id } }));
+        if (current?.id === record.id) {
+          setCurrent(null);
+          formApiRef.current?.setFields([{ name: 'templateId', value: [] }]);
+        }
+        message.success('已删除');
+        reload?.();
+      }
     });
   };
 
@@ -151,24 +194,54 @@ const TicketCreatePage = createWithRemoteLoader({
                     {
                       name: 'name',
                       title: '模板名称',
-                      width: 240,
+                      width: 220,
                       valueOf: item => (item.builtin ? `${item.name}（系统，不可修改）` : item.name)
                     },
-                    { name: 'description', title: '说明', width: 360 }
+                    { name: 'description', title: '说明', width: 280 },
+                    {
+                      name: 'options',
+                      title: '操作',
+                      renderType: 'options',
+                      width: 140,
+                      getValueOf: item =>
+                        item.builtin
+                          ? []
+                          : [
+                              {
+                                children: '编辑',
+                                onClick: event => {
+                                  event?.stopPropagation?.();
+                                  const { close, reload } = pickerRef.current;
+                                  close?.();
+                                  openTemplateEditor(item, reload);
+                                }
+                              },
+                              {
+                                children: '删除',
+                                onClick: event => {
+                                  event?.stopPropagation?.();
+                                  removeTemplate(item, pickerRef.current.reload);
+                                }
+                              }
+                            ]
+                    }
                   ]}
                   onChange={value => setCurrent((Array.isArray(value) ? value[0] : value) || null)}
-                  footer={({ close, reload }) => (
-                    <Button
-                      type="link"
-                      icon={<PlusOutlined />}
-                      onClick={() => {
-                        close?.();
-                        openCreateTemplate(reload);
-                      }}
-                    >
-                      新建模板
-                    </Button>
-                  )}
+                  footer={({ close, reload }) => {
+                    pickerRef.current = { close, reload };
+                    return (
+                      <Button
+                        type="link"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                          close?.();
+                          openCreateTemplate(reload);
+                        }}
+                      >
+                        新建模板
+                      </Button>
+                    );
+                  }}
                 />
               ]}
             />
@@ -190,10 +263,17 @@ const TicketCreatePage = createWithRemoteLoader({
             <div className={style['section-title']}>工单内容</div>
             {current?.schema ? <SchemaRendererInner schema={current.schema} showActions={false} /> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<Typography.Text type="secondary">选择模板后填写</Typography.Text>} />}
           </div>
-          <ButtonFooter className={style['form-footer']} placement="bottomEnd">
-            <CancelButton onClick={() => navigate(-1)}>取消</CancelButton>
-            <SubmitButton type="primary">提交工单</SubmitButton>
-          </ButtonFooter>
+          {layoutType === 'system-layout' ? (
+            <Page.Footer>
+              <CancelButton onClick={() => navigate(-1)}>取消</CancelButton>
+              <SubmitButton type="primary">提交工单</SubmitButton>
+            </Page.Footer>
+          ) : (
+            <ButtonFooter className={style['form-footer']} placement="bottomEnd">
+              <CancelButton onClick={() => navigate(-1)}>取消</CancelButton>
+              <SubmitButton type="primary">提交工单</SubmitButton>
+            </ButtonFooter>
+          )}
         </Form>
       </div>
     </PageView>

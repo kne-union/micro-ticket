@@ -75,8 +75,16 @@ module.exports = fp(async fastify => {
 
   const ensureColumns = async () => {
     const qi = fastify.sequelize.instance.getQueryInterface();
-    const table = 't_ticket_base_template';
-    const desc = await qi.describeTable(table);
+    const model = models().ticketBaseTemplate;
+    const rawTable = model.getTableName();
+    const table = typeof rawTable === 'string' ? rawTable : rawTable.tableName;
+    let desc;
+    try {
+      desc = await qi.describeTable(table);
+    } catch (error) {
+      // 新环境由 sequelize sync 建表，此时列已齐全
+      return;
+    }
     const { DataTypes } = fastify.sequelize.Sequelize;
     if (!desc.code) {
       await qi.addColumn(table, 'code', { type: DataTypes.STRING, allowNull: true });
@@ -87,7 +95,7 @@ module.exports = fp(async fastify => {
     const indexes = await qi.showIndex(table);
     const hasCode = indexes.some(item => (item.name || '').includes('code') || (item.fields || []).some(field => (field.attribute || field.name) === 'code'));
     if (!hasCode) {
-      await qi.addIndex(table, ['code'], { unique: true, name: 't_ticket_base_template_code' });
+      await qi.addIndex(table, ['code'], { unique: true, name: `${table}_code` });
     }
   };
 

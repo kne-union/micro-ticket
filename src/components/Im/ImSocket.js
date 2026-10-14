@@ -1,14 +1,43 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { getToken } from '@kne/token-storage';
 import { openImSocket } from './socket';
 
-const ImSocket = ({ baseUrl = '' }) => {
+const unreadTotal = body => {
+  const payload = body?.data?.data ?? body?.data ?? body ?? {};
+  const system = Number(payload.system) || 0;
+  const conversations = Number(payload.total) || 0;
+  return system + conversations;
+};
+
+const ImSocket = ({ baseUrl = '', onUnread }) => {
   const navigate = useNavigate();
+  const onUnreadRef = useRef(onUnread);
+  onUnreadRef.current = onUnread;
 
   useEffect(() => {
+    let closed = false;
+    const publishUnread = async () => {
+      try {
+        const token = getToken('X-User-Token');
+        const response = await fetch('/api/v1/im/unread-count', {
+          headers: token ? { 'x-user-token': token } : {}
+        });
+        const body = await response.json();
+        if (!closed) {
+          onUnreadRef.current?.(unreadTotal(body));
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+    publishUnread();
+    window.addEventListener('im-unread-refresh', publishUnread);
     const socket = openImSocket(event => {
+      if (event.type === 'unreadCount' || event.type === 'unreadCountUpdated' || event.type === 'unreadSystemCount' || event.type === 'systemMessage' || event.type === 'newMessage') {
+        publishUnread();
+      }
       if (event.type !== 'systemMessage') {
         return;
       }
@@ -25,7 +54,9 @@ const ImSocket = ({ baseUrl = '' }) => {
             fetch(`/api/v1/im/system-messages/${item.id}/read`, {
               method: 'POST',
               headers: token ? { 'x-user-token': token } : {}
-            }).catch(() => null);
+            })
+              .catch(() => null)
+              .finally(() => publishUnread());
           }
           if (ticketId) {
             navigate(`${baseUrl}/ticket/${ticketId}`);
@@ -33,7 +64,11 @@ const ImSocket = ({ baseUrl = '' }) => {
         }
       });
     });
-    return () => socket.close();
+    return () => {
+      closed = true;
+      window.removeEventListener('im-unread-refresh', publishUnread);
+      socket.close();
+    };
   }, [baseUrl, navigate]);
 
   return null;

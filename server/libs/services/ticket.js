@@ -1,5 +1,7 @@
 const fp = require('fastify-plugin');
 const { PRIORITIES, statusLabel, allowedTransition, reopenNeedsReason, isOverdue, notifyTargetIds } = require('../ticket/rules');
+const { DEFAULT_POLICY, dueDates, statusClockPatch, dueEscalation, slaTag, normalizePolicy } = require('../ticket/sla');
+const { COMPLETE_DEFAULTS, hasBlocks, LEGACY_SUPPLEMENT } = require('../ticket/complete-defaults');
 
 const httpError = (statusCode, message) => {
   const error = new Error(message);
@@ -13,6 +15,10 @@ module.exports = fp(async fastify => {
   const { Op } = fastify.sequelize.Sequelize;
 
   const models = () => fastify.project.models;
+  const tableNameOf = model => {
+    const raw = model.getTableName();
+    return typeof raw === 'string' ? raw : raw.tableName;
+  };
 
   const tenantIdOf = actor => toId(actor.tenantId);
   const actorIdOf = actor => toId(actor.id);
@@ -149,7 +155,8 @@ module.exports = fp(async fastify => {
       assigneeIds,
       assignees: assigneeIds.map(id => ({ id, name: names[id] || '' })),
       assigneeName: assigneeIds.length ? assigneeIds.map(id => names[id] || '未知').join('、') : '未指派',
-      overdue: isOverdue(plain)
+      overdue: isOverdue(plain),
+      sla: slaTag(plain)
     };
   };
 
@@ -199,14 +206,67 @@ module.exports = fp(async fastify => {
     return count > 0;
   };
 
-  const assertHandler = async actor => {
+  const isHandler = async actor => {
     const permissions = actor.permissions || [];
     const codes = Array.isArray(permissions) ? permissions : permissions.codes || [];
     if (codes.some(code => code === 'ticket' || String(code).startsWith('ticket:'))) {
-      return;
+      return true;
     }
-    if (!(await isTenantAdmin(actor))) {
+    return isTenantAdmin(actor);
+  };
+
+  const assertHandler = async actor => {
+    if (!(await isHandler(actor))) {
       throw httpError(403, '没有工单处理权限');
+    }
+  };
+
+  const jsonList = value => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (error) {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const policyFor = async tenantId => {
+    const row = await models().ticketSla.findOne({ where: { tenantId: toId(tenantId) } });
+    if (!row) {
+      return { ...DEFAULT_POLICY, targets: { ...DEFAULT_POLICY.targets } };
+    }
+    const plain = row.toJSON();
+    let targets = plain.targets;
+    if (typeof targets === 'string') {
+      try {
+        targets = JSON.parse(targets || '{}');
+      } catch (error) {
+        targets = {};
+      }
+    }
+    return {
+      ...DEFAULT_POLICY,
+      timezone: plain.timezone || DEFAULT_POLICY.timezone,
+      weekdays: jsonList(plain.weekdays).length ? jsonList(plain.weekdays) : DEFAULT_POLICY.weekdays,
+      startTime: plain.startTime || DEFAULT_POLICY.startTime,
+      endTime: plain.endTime || DEFAULT_POLICY.endTime,
+      holidays: jsonList(plain.holidays),
+      extraWorkdays: jsonList(plain.extraWorkdays),
+      targets: targets && typeof targets === 'object' ? { ...DEFAULT_POLICY.targets, ...targets } : DEFAULT_POLICY.targets,
+      escalation: jsonList(plain.escalation)
+    };
+  };
+
+  const moveClock = async (ticket, from, to) => {
+    const patch = statusClockPatch(ticket, from, to, new Date(), await policyFor(ticket.tenantId));
+    if (Object.keys(patch).length) {
+      await ticket.update(patch);
     }
   };
 
@@ -224,7 +284,7 @@ module.exports = fp(async fastify => {
         where: { tenantId: tenantIdOf(actor), ticketId: toId(ticket.id), tenantUserId: actorId }
       });
       const isAssignee = toId(ticket.assigneeTenantUserId) === actorId || linked > 0;
-      if (!isReporter && !isAssignee) {
+      if (!isReporter && !isAssignee && !(await isHandler(actor))) {
         throw httpError(403, '只能查看自己发起或指派给自己的工单');
       }
     }
@@ -291,6 +351,24 @@ module.exports = fp(async fastify => {
       ...payload,
       tenantId: tenantIdOf(actor)
     });
+  };
+
+  const removeTemplate = async (actor, { id }) => {
+    await assertHandler(actor);
+    const locked = await models().ticketBaseTemplate.findOne({
+      where: { id: toId(id), builtin: true }
+    });
+    if (locked) {
+      throw httpError(400, '系统问卷不可删除');
+    }
+    const record = await models().ticketTemplate.findOne({
+      where: { id: toId(id), tenantId: tenantIdOf(actor) }
+    });
+    if (!record) {
+      throw httpError(404, '模板不存在');
+    }
+    await record.destroy();
+    return {};
   };
 
   const importBaseTemplate = async (actor, { id }) => {
@@ -447,6 +525,7 @@ module.exports = fp(async fastify => {
       : await models().ticketCompletion.create({ ...payload, tenantId: tenantIdOf(actor), ticketId: toId(ticket.id) });
     const fromStatus = ticket.status;
     await ticket.update({ status: 'waiting' });
+    await moveClock(ticket, fromStatus, 'waiting');
     await models().ticketEvent.create({
       tenantId: tenantIdOf(actor),
       ticketId: toId(ticket.id),
@@ -495,6 +574,7 @@ module.exports = fp(async fastify => {
       : await models().ticketSupplement.create({ ...payload, tenantId: tenantIdOf(actor), ticketId: toId(ticket.id) });
     const fromStatus = ticket.status;
     await ticket.update({ status: 'supplement' });
+    await moveClock(ticket, fromStatus, 'supplement');
     await models().ticketEvent.create({
       tenantId: tenantIdOf(actor),
       ticketId: toId(ticket.id),
@@ -540,6 +620,7 @@ module.exports = fp(async fastify => {
       submitted: true
     });
     await ticket.update({ status: 'processing' });
+    await moveClock(ticket, 'supplement', 'processing');
     await models().ticketEvent.create({
       tenantId: tenantIdOf(actor),
       ticketId: toId(ticket.id),
@@ -656,7 +737,8 @@ module.exports = fp(async fastify => {
       expectAt: body.expectAt || null,
       schemaSnapshot: template.schema || {},
       answers: body.answers && typeof body.answers === 'object' ? body.answers : {},
-      attachmentIds: Array.isArray(body.attachmentIds) ? body.attachmentIds.map(toId) : []
+      attachmentIds: Array.isArray(body.attachmentIds) ? body.attachmentIds.map(toId) : [],
+      ...dueDates(new Date(), priority, await policyFor(tenantIdOf(actor)))
     };
     let ticket;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -714,7 +796,7 @@ module.exports = fp(async fastify => {
       ...assigneeIdsOf(ticket, assigneeRows),
       ...comments.map(item => item.authorTenantUserId),
       ...mentionRows.map(item => item.tenantUserId),
-      ...events.flatMap(item => [item.operatorTenantUserId, item.type === 'assign' ? item.fromValue : '', item.type === 'assign' ? item.toValue : ''])
+      ...events.flatMap(item => [item.operatorTenantUserId, item.type === 'assign' || item.type === 'sla' ? item.fromValue : '', item.type === 'assign' || item.type === 'sla' ? item.toValue : ''])
     ]);
     const nameList = value => {
       const ids = String(value || '')
@@ -742,12 +824,13 @@ module.exports = fp(async fastify => {
         return {
           ...plain,
           operatorName: names[toId(plain.operatorTenantUserId)] || '',
-          fromName: plain.type === 'assign' ? nameList(plain.fromValue) : statusLabel(plain.fromValue),
-          toName: plain.type === 'assign' ? nameList(plain.toValue) : statusLabel(plain.toValue)
+          fromName: plain.type === 'assign' ? nameList(plain.fromValue) : plain.type === 'sla' ? (plain.fromValue === 'response' ? '响应' : '解决') : statusLabel(plain.fromValue),
+          toName: plain.type === 'assign' ? nameList(plain.toValue) : plain.type === 'sla' ? names[toId(plain.toValue)] || '' : statusLabel(plain.toValue)
         };
       }),
       completion: completion ? completion.toJSON() : null,
       supplement: supplement ? supplement.toJSON() : null,
+      canHandle: asHandler || (await isHandler(actor)),
       watching: (await watcherIdsOf(actor, ticket.id)).includes(actorIdOf(actor))
     };
   };
@@ -769,6 +852,7 @@ module.exports = fp(async fastify => {
     }
     const fromValue = ticket.status;
     await ticket.update({ status });
+    await moveClock(ticket, fromValue, status);
     if (reason && reopenNeedsReason(fromValue, status)) {
       await models().ticketComment.create({
         tenantId: tenantIdOf(actor),
@@ -802,6 +886,7 @@ module.exports = fp(async fastify => {
     }
     const currentIds = assigneeIdsOf(ticket, await assigneeRowsOf(actor, [toId(ticket.id)]));
     await ticket.update({ status: 'processing' });
+    await moveClock(ticket, 'pending', 'processing');
     if (!currentIds.length) {
       await replaceAssignees(actor, ticket, [actorIdOf(actor)]);
     }
@@ -849,6 +934,7 @@ module.exports = fp(async fastify => {
     const fromStatus = ticket.status;
     if (asHandler && fromStatus === 'pending' && nextIds.length) {
       await ticket.update({ status: 'processing' });
+      await moveClock(ticket, 'pending', 'processing');
       await models().ticketEvent.create({
         tenantId: tenantIdOf(actor),
         ticketId: toId(ticket.id),
@@ -983,15 +1069,148 @@ module.exports = fp(async fastify => {
 
   const ensureColumns = async () => {
     const qi = fastify.sequelize.instance.getQueryInterface();
-    const table = 't_ticket_complete_template';
-    const desc = await qi.describeTable(table);
-    if (!desc.usage) {
-      await qi.addColumn(table, 'usage', {
+    const completeTable = tableNameOf(models().ticketCompleteTemplate);
+    const ticketTable = tableNameOf(models().ticket);
+    let desc;
+    try {
+      desc = await qi.describeTable(completeTable);
+    } catch (error) {
+      desc = null;
+    }
+    if (desc && !desc.usage) {
+      await qi.addColumn(completeTable, 'usage', {
         type: fastify.sequelize.Sequelize.DataTypes.STRING,
         allowNull: false,
         defaultValue: 'complete'
       });
-      await fastify.sequelize.instance.query(`UPDATE ${table} SET usage = 'complete' WHERE usage IS NULL OR usage = ''`);
+      await fastify.sequelize.instance.query(
+        `UPDATE "${completeTable}" SET usage = 'complete' WHERE usage IS NULL OR usage = ''`
+      );
+    }
+    let ticketDesc;
+    try {
+      ticketDesc = await qi.describeTable(ticketTable);
+    } catch (error) {
+      ticketDesc = null;
+    }
+    if (ticketDesc) {
+      const { DataTypes } = fastify.sequelize.Sequelize;
+      const columns = {
+        response_due_at: { type: DataTypes.DATE, allowNull: true },
+        resolve_due_at: { type: DataTypes.DATE, allowNull: true },
+        response_met_at: { type: DataTypes.DATE, allowNull: true },
+        resolve_met_at: { type: DataTypes.DATE, allowNull: true },
+        sla_paused_at: { type: DataTypes.DATE, allowNull: true },
+        escalation_level: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 }
+      };
+      for (const [name, spec] of Object.entries(columns)) {
+        if (!ticketDesc[name]) {
+          await qi.addColumn(ticketTable, name, spec);
+        }
+      }
+    }
+    const missing = await models().ticket.findAll({ where: { responseDueAt: null, status: { [Op.ne]: 'done' } } });
+    for (const ticket of missing) {
+      const clock = dueDates(ticket.createdAt || new Date(), ticket.priority, await policyFor(ticket.tenantId));
+      await ticket.update({ responseDueAt: clock.responseDueAt, resolveDueAt: clock.resolveDueAt });
+    }
+    await ensureCompleteDefaults();
+  };
+
+  const ensureCompleteDefaults = async () => {
+    const tenantModel = fastify.tenant?.models?.tenant;
+    if (!tenantModel) {
+      return;
+    }
+    const tenantTable = tableNameOf(tenantModel);
+    const [tenants] = await fastify.sequelize.instance.query(`SELECT id FROM "${tenantTable}"`);
+    const template = models().ticketCompleteTemplate;
+    for (const tenant of tenants) {
+      const tenantId = toId(tenant.id);
+      for (const item of COMPLETE_DEFAULTS) {
+        const existing = await template.findOne({ where: { tenantId, name: item.name, usage: 'complete' } });
+        if (!existing) {
+          await template.create({
+            tenantId,
+            name: item.name,
+            description: item.description,
+            enabled: true,
+            usage: 'complete',
+            schema: item.schema
+          });
+        }
+      }
+      const legacy = await template.findOne({ where: { tenantId, name: LEGACY_SUPPLEMENT.name, usage: 'complete' } });
+      if (legacy && !hasBlocks(legacy.schema)) {
+        await legacy.update({ schema: LEGACY_SUPPLEMENT.schema });
+      }
+    }
+  };
+
+  const getSla = async actor => {
+    await assertHandler(actor);
+    return policyFor(tenantIdOf(actor));
+  };
+
+  const saveSla = async (actor, body) => {
+    await assertHandler(actor);
+    let policy;
+    try {
+      policy = normalizePolicy(body || {});
+    } catch (error) {
+      throw httpError(400, error.message);
+    }
+    const ids = policy.escalation.map(item => item.tenantUserId);
+    if (ids.length) {
+      const users = await fastify.tenant.models.tenantUser.findAll({
+        where: { tenantId: tenantIdOf(actor), status: 'open', id: { [Op.in]: ids } },
+        attributes: ['id']
+      });
+      if (users.length !== new Set(ids).size) {
+        throw httpError(400, '升级链里有不属于本租户的成员');
+      }
+    }
+    const existing = await models().ticketSla.findOne({ where: { tenantId: tenantIdOf(actor) } });
+    if (existing) {
+      await existing.update(policy);
+      return existing;
+    }
+    return models().ticketSla.create({ ...policy, tenantId: tenantIdOf(actor) });
+  };
+
+  const sweepSla = async () => {
+    const rows = await models().ticket.findAll({ where: { status: { [Op.ne]: 'done' }, responseDueAt: { [Op.ne]: null } } });
+    const now = new Date();
+    for (const ticket of rows) {
+      const policy = await policyFor(ticket.tenantId);
+      const responding = !ticket.responseMetAt;
+      if (!responding && ticket.slaPausedAt) {
+        continue;
+      }
+      const dueAt = responding ? ticket.responseDueAt : ticket.resolveDueAt;
+      const step = dueEscalation({ steps: policy.escalation, level: ticket.escalationLevel || 0, dueAt, now, policy });
+      if (!step) {
+        continue;
+      }
+      await ticket.update({ escalationLevel: (ticket.escalationLevel || 0) + 1 });
+      await models().ticketEvent.create({
+        tenantId: ticket.tenantId,
+        ticketId: toId(ticket.id),
+        type: 'sla',
+        fromValue: responding ? 'response' : 'resolve',
+        toValue: step.tenantUserId,
+        operatorTenantUserId: 'sla'
+      });
+      await notifyTicket(
+        { tenantId: ticket.tenantId, id: 'sla' },
+        ticket,
+        {
+          title: `工单 ${ticket.no} ${responding ? '响应' : '解决'}超时`,
+          content: ticket.title,
+          extraIds: [step.tenantUserId],
+          includeReporter: false
+        }
+      );
     }
   };
 
@@ -1006,6 +1225,7 @@ module.exports = fp(async fastify => {
   fastify.project.services.ticket = {
     listTemplates,
     saveTemplate,
+    removeTemplate,
     importBaseTemplate,
     listFormLibrary,
     saveFormLibrary,
@@ -1030,6 +1250,16 @@ module.exports = fp(async fastify => {
     listMembers,
     watch,
     unwatch,
-    ensureColumns
+    ensureColumns,
+    getSla,
+    saveSla
   };
+
+  const timer = setInterval(() => {
+    sweepSla().catch(error => fastify.log.error({ err: error }, 'SLA 升级扫描失败'));
+  }, 60 * 1000);
+  if (typeof timer.unref === 'function') {
+    timer.unref();
+  }
+  fastify.addHook('onClose', async () => clearInterval(timer));
 });

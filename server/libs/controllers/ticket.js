@@ -27,6 +27,10 @@ module.exports = fp(async (fastify, options) => {
     return services().saveTemplate(actorOf(request), request.body || {});
   });
 
+  fastify.post(`${prefix}/template/remove`, { onRequest }, async request => {
+    return services().removeTemplate(actorOf(request), request.body || {});
+  });
+
   fastify.get(`${prefix}/base-template/list`, { onRequest }, async request => {
     return fastify.project.services.ticketBase.list({ ...request.query, enabledOnly: true });
   });
@@ -148,5 +152,13 @@ module.exports = fp(async (fastify, options) => {
 
   fastify.get(`${prefix}/members`, { onRequest }, async request => {
     return services().listMentionUsers(actorOf(request));
+  });
+
+  fastify.get(`${prefix}/sla`, { onRequest }, async request => {
+    return services().getSla(actorOf(request));
+  });
+
+  fastify.post(`${prefix}/sla/save`, { onRequest }, async request => {
+    return services().saveSla(actorOf(request), request.body || {});
   });
 });

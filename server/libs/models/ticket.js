@@ -73,6 +73,37 @@ module.exports = ({ DataTypes }) => {
         type: DataTypes.JSON,
         defaultValue: [],
         comment: '附件文件 id'
+      },
+      responseDueAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: '响应时限'
+      },
+      resolveDueAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: '解决时限'
+      },
+      responseMetAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: '首次受理时间'
+      },
+      resolveMetAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: '完成时间'
+      },
+      slaPausedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'SLA 暂停开始'
+      },
+      escalationLevel: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        comment: '已升级级数'
       }
     },
     options: {
