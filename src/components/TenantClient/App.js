@@ -41,7 +41,7 @@ const TenantClient = createWithRemoteLoader({
             path: 'ticket/:id',
             title: formatMessage({ id: 'ClientTicket' }),
             loader: () => import('@components/Ticket/TicketDetailPage'),
-            elementProps: { layoutType: 'system-layout', mode: 'client' }
+            elementProps: { layoutType: 'system-layout', mode: 'client', baseUrl }
           },
           {
             path: 'chat',

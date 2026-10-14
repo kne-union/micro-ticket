@@ -1,0 +1,218 @@
+@use '~@kne/responsive-utils/scss' as resp;
+
+.page {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: transparent;
+}
+
+.rail {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex: 0 0 300px;
+  flex-direction: column;
+  align-self: flex-start;
+  width: 300px;
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(10px);
+}
+
+.rail:only-child,
+.thread:only-child {
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+.switcher {
+  padding: 4px 4px 8px;
+}
+
+.list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.45);
+  }
+}
+
+.active {
+  background: #e8f1ff;
+
+  &:hover {
+    background: #e8f1ff;
+  }
+}
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 600;
+}
+
+.avatar-notice {
+  background: #eef1f6;
+  color: #4b5563;
+}
+
+.meta {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name,
+.preview {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.name {
+  color: #111827;
+  font-weight: 600;
+}
+
+.preview {
+  color: rgba(17, 24, 39, 0.5);
+  font-size: 13px;
+}
+
+.thread {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  margin: 4px 8px 0;
+  padding: 0 8px;
+}
+
+.headerName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ticketPane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.noticeBody {
+  padding: 8px 12px;
+  color: rgba(17, 24, 39, 0.88);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.messages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 8px;
+}
+
+.composer {
+  margin: 0 12px 12px;
+  padding: 0;
+}
+
+.empty,
+.blank {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgba(17, 24, 39, 0.45);
+}
+
+.blank {
+  min-height: 160px;
+}
+
+.emptyIcon {
+  margin-bottom: 8px;
+  color: #9aa3b2;
+  font-size: 28px;
+}
+
+.emptyTitle {
+  color: #111827;
+  font-weight: 600;
+}
+
+.emptyDesc {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+@include resp.mobile-container {
+  .page {
+    gap: 0;
+  }
+
+  .rail,
+  .thread {
+    border-radius: 10px;
+  }
+}

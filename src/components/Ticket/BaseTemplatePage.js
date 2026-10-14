@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { App, Button, Space, Tag } from 'antd';
 import { createWithRemoteLoader } from '@kne/remote-loader';
-import { unwrap } from './labels';
 import style from './style.module.scss';
 
 const listApi = { url: '/api/v1/admin/ticket-base-template/list', method: 'GET' };
@@ -69,133 +67,112 @@ const EditorBody = createWithRemoteLoader({
 });
 
 const BaseTemplatePage = createWithRemoteLoader({
-  modules: ['components-core:Layout@TablePage', 'components-core:FormInfo@useFormModal', 'components-core:Global@usePreset', 'components-core:Filter']
+  modules: ['components-admin:BizUnit', 'components-core:FormInfo@useFormModal', 'components-thirdparty:FormCreator@SchemaRendererInner']
 })(({ remoteModules }) => {
-  const [TablePage, useFormModal, usePreset, Filter] = remoteModules;
-  const { SearchInput, getFilterValue } = Filter;
-  const { ajax } = usePreset();
-  const { message, modal } = App.useApp();
+  const [BizUnit, useFormModal, SchemaRendererInner] = remoteModules;
   const formModal = useFormModal();
-  const ref = useRef(null);
   const schemaRef = useRef(null);
-  const [filter, setFilter] = useState([]);
-  const filterValue = getFilterValue(filter);
+  const editingRef = useRef(null);
 
-  const reload = () => ref.current?.reload?.();
+  const templatePayload = (formData, id) => ({
+    ...saveApi,
+    data: {
+      id,
+      name: formData.name,
+      description: formData.description,
+      enabled: formData.enabled !== false,
+      schema: schemaRef.current
+    }
+  });
 
-  const openEditor = record => {
-    schemaRef.current = schemaOf(record?.schema);
+  const openView = record => {
     formModal({
-      title: record ? '编辑公共模板' : '新建公共模板',
+      title: '查看公共模板',
       size: 'large',
       width: 'calc(100vw - 48px)',
-      okText: '保存',
+      footerButtons: [{ children: '关闭' }],
       formProps: {
-        data: {
-          name: record?.name || '',
-          description: record?.description || '',
-          enabled: record ? record.enabled !== false : true
-        },
-        onSubmit: async values => {
-          try {
-            unwrap(
-              await ajax({
-                ...saveApi,
-                data: {
-                  id: record?.id,
-                  name: values.name,
-                  description: values.description,
-                  enabled: values.enabled !== false,
-                  schema: schemaRef.current
-                }
-              })
-            );
-          } catch (error) {
-            message.error(error.message);
-            return false;
-          }
-          message.success(record ? '公共模板已保存' : '公共模板已创建');
-          reload();
-        }
+        onSubmit: () => true
       },
       children: (
-        <EditorBody
-          key={record?.id || 'create'}
-          initialSchema={schemaOf(record?.schema)}
-          onSchema={schema => {
-            schemaRef.current = schema;
-          }}
-        />
+        <div className={style['template-view']}>
+          <div>
+            <div className={style['view-name']}>{record.name}</div>
+            <div className={style['view-desc']}>{record.description || '—'}</div>
+          </div>
+          <SchemaRendererInner schema={schemaOf(record.schema) || {}} showActions={false} />
+        </div>
       )
     });
   };
 
-  const remove = record => {
-    modal.confirm({
-      title: `删除「${record.name}」？`,
-      content: '已导入到租户的模板不受影响。',
-      okText: '删除',
-      okButtonProps: { danger: true },
-      onOk: async () => {
-        unwrap(await ajax({ ...removeApi, data: { id: record.id } }));
-        message.success('已删除');
-        reload();
-      }
-    });
-  };
-
   return (
-    <TablePage
-      {...listApi}
-      params={filterValue}
-      ref={ref}
+    <BizUnit
+      isNext
       name="ticketBaseTemplate"
-      pagination={{ paramsType: 'params' }}
-      page={{
-        title: '工单模板',
-        filter: {
-          value: filter,
-          onChange: setFilter,
-          list: []
-        },
-        titleExtra: (
-          <Space align="center">
-            <SearchInput name="keyword" label="名称" />
-            <Button type="primary" onClick={() => openEditor(null)}>
-              新建模板
-            </Button>
-          </Space>
-        )
+      page={{ title: '工单模板' }}
+      apis={{
+        list: listApi,
+        create: ({ formData }) => templatePayload(formData),
+        save: ({ formData, data }) => templatePayload(formData, data.id),
+        remove: ({ data }) => ({ ...removeApi, data: { id: data.id } })
       }}
-      columns={[
-        { name: 'name', title: '名称', primary: true },
-        { name: 'description', title: '说明' },
+      getColumns={() => [
+        { name: 'name', title: '名称', renderType: 'main' },
+        { name: 'description', title: '说明', renderType: 'description', ellipsis: true },
         {
           name: 'enabled',
           title: '状态',
-          valueOf: item =>
-            item.builtin ? (
-              <Tag color="blue">系统预设</Tag>
-            ) : item.enabled === false ? (
-              <Tag>已停用</Tag>
-            ) : (
-              <Tag color="green">可导入</Tag>
-            )
+          renderType: 'tag',
+          getValueOf: item => (item.builtin ? { type: 'processing', text: '系统预设' } : item.enabled === false ? { type: 'default', text: '已停用' } : { type: 'success', text: '可导入' })
         },
-        { name: 'updatedAt', title: '更新时间', type: 'datetime' },
-        {
-          name: 'options',
-          title: '操作',
-          type: 'options',
-          valueOf: item =>
-            item.builtin
-              ? []
-              : [
-                  { children: '编辑', onClick: () => openEditor(item) },
-                  { children: '删除', onClick: () => remove(item) }
-                ]
-        }
+        { name: 'updatedAt', title: '更新时间', format: 'datetime' }
       ]}
+      getFormInner={() => (
+        <EditorBody
+          key={editingRef.current?.id || 'create'}
+          initialSchema={schemaRef.current}
+          onSchema={schema => {
+            schemaRef.current = schema;
+          }}
+        />
+      )}
+      getActionList={({ data }) =>
+        data.builtin
+          ? [
+              { name: 'save', reset: () => ({ hidden: true }) },
+              { name: 'remove', reset: () => ({ hidden: true }) },
+              { children: '查看', onClick: () => openView(data) }
+            ]
+          : [{ name: 'save' }, { name: 'remove' }]
+      }
+      options={{
+        bizName: '公共模板',
+        keywordFilterName: 'keyword',
+        keywordFilterLabel: '名称',
+        formSize: 'large',
+        showLength: 2,
+        createButtonProps: { children: '新建模板', type: 'primary' },
+        editButtonProps: { children: '编辑' },
+        removeButtonProps: { children: '删除' },
+        removeMessage: '已导入到租户的模板不受影响。',
+        formModalProps: { width: 'calc(100vw - 48px)', okText: '保存' },
+        createFormModalProps: { title: '新建公共模板' },
+        editFormModalProps: { title: '编辑公共模板' },
+        formProps: ({ action, data }) => {
+          if (action === 'edit') {
+            editingRef.current = data;
+            schemaRef.current = schemaOf(data?.schema);
+            return {};
+          }
+          editingRef.current = null;
+          schemaRef.current = null;
+          return { data: { enabled: true } };
+        },
+        tableProps: {
+          pagination: { paramsType: 'params', currentName: 'currentPage', pageSizeName: 'perPage' }
+        }
+      }}
     />
   );
 });

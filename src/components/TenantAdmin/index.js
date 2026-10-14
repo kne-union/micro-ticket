@@ -53,7 +53,7 @@ const TenantAdmin = createWithRemoteLoader({
             path: 'ticket/:id',
             title: formatMessage({ id: 'TenantMenuTicket' }),
             loader: () => import('@components/Ticket/TicketDetailPage'),
-            elementProps: { layoutType: 'layout', mode: 'manage' }
+            elementProps: { layoutType: 'layout', mode: 'manage', baseUrl }
           },
           {
             path: 'chat',
@@ -66,6 +66,12 @@ const TenantAdmin = createWithRemoteLoader({
             title: formatMessage({ id: 'TenantMenuTicket' }),
             loader: () => import('@components/Ticket/TicketListPage'),
             elementProps: { layoutType: 'layout', mode: 'manage', baseUrl }
+          },
+          {
+            path: 'sla',
+            title: 'SLA',
+            loader: () => import('@components/Ticket/SlaPage'),
+            elementProps: { layoutType: 'layout' }
           },
           {
             path: 'sample',

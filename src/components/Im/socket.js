@@ -16,6 +16,10 @@ export const openImSocket = onEvent => {
   return socket;
 };
 
+export const refreshImUnread = () => {
+  window.dispatchEvent(new CustomEvent('im-unread-refresh'));
+};
+
 export const sendSocket = (socket, type, payload) => {
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     return;

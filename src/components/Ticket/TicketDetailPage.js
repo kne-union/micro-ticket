@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, Space, Tag, message } from 'antd';
-import { useParams } from 'react-router-dom';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Button, Empty, Tag, message } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { useLocation, useParams } from 'react-router-dom';
 import { createWithRemoteLoader } from '@kne/remote-loader';
 import { Page } from '@kne/system-layout';
-import { PRIORITY_OPTIONS, STATUS_OPTIONS, labelOf, unwrap } from './labels';
+import { PRIORITY_OPTIONS, PRIORITY_STATE, SLA_STATE, STATUS_OPTIONS, STATUS_STATE, labelOf, unwrap } from './labels';
 import { buildMemberSelectApis } from './memberSelectApis';
+import { TemplateCreateBody, parentIdOf } from './TemplatePage';
 import style from './style.module.scss';
 
 const formatTime = value => {
@@ -19,20 +21,77 @@ const formatTime = value => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+// components-core Flow 的 type="dot" 只把圆点 class 交给 antd 6。antd 5 要根节点带 ant-steps-dot，图标才是 ant-steps-icon-dot。
+const paintAntd5FlowDots = root => {
+  const steps = root?.querySelector('.kne-info-flow-dot');
+  if (!steps) {
+    return;
+  }
+  steps.classList.add('ant-steps-dot');
+  steps.querySelectorAll('.ant-steps-item-icon > .ant-steps-icon').forEach(icon => {
+    if (icon.querySelector('.ant-steps-icon-dot')) {
+      return;
+    }
+    icon.replaceChildren();
+    const dot = document.createElement('span');
+    dot.className = 'ant-steps-icon-dot';
+    icon.appendChild(dot);
+  });
+};
+
 const eventText = item => {
   const who = item.operatorName || '有人';
   if (item.type === 'assign') {
     return `${who} 将处理人从「${item.fromName || '未指派'}」改为「${item.toName || '未指派'}」`;
   }
+  if (item.type === 'sla') {
+    return `${item.fromName || '时限'}超时，升级通知 ${item.toName || '下一级'}`;
+  }
   return `${who} 将状态从「${labelOf(STATUS_OPTIONS, item.fromValue)}」改为「${labelOf(STATUS_OPTIONS, item.toValue)}」`;
 };
 
-const CompleteBody = ({ FormInfo, SchemaRendererInner, ajax }) => {
+const schemaOf = value => {
+  if (value && typeof value === 'object') {
+    return value;
+  }
+  if (typeof value === 'string' && value) {
+    try {
+      return JSON.parse(value);
+    } catch (error) {
+      return null;
+    }
+  }
+  return null;
+};
+
+const hasFillFields = schema => {
+  const blocks = schemaOf(schema)?.blocks;
+  return Array.isArray(blocks) && blocks.some(block => Array.isArray(block.list) && block.list.length > 0);
+};
+
+const CompleteBody = ({ FormInfo, SchemaRendererInner, ajax, onCreateTemplate }) => {
   const { SuperSelectTableList, TextArea } = FormInfo.fields;
   const [template, setTemplate] = useState(null);
+  const rowsRef = useRef([]);
+  const reloadRef = useRef(null);
+
+  const pickTemplate = value => {
+    const picked = Array.isArray(value) ? value[0] : value;
+    if (!picked) {
+      setTemplate(null);
+      return;
+    }
+    if (typeof picked === 'object' && hasFillFields(picked.schema)) {
+      setTemplate({ ...picked, schema: schemaOf(picked.schema) });
+      return;
+    }
+    const id = typeof picked === 'object' ? picked.id : picked;
+    const row = rowsRef.current.find(item => String(item.id) === String(id));
+    setTemplate(row ? { ...row, schema: schemaOf(row.schema) } : null);
+  };
 
   return (
-    <div>
+    <div className={style['complete-body']}>
       <FormInfo
         column={1}
         list={[
@@ -50,18 +109,43 @@ const CompleteBody = ({ FormInfo, SchemaRendererInner, ajax }) => {
             api={{
               loader: async () => {
                 const rows = unwrap(await ajax({ url: '/api/v1/ticket/complete-template/list', method: 'GET', params: { enabledOnly: true, usage: 'complete' } })) || [];
+                rowsRef.current = rows;
                 return { pageData: rows, totalCount: rows.length };
               }
             }}
             columns={[
-              { name: 'name', title: '模板名称', width: 240 },
-              { name: 'description', title: '说明', width: 360 }
+              { name: 'name', title: '模板名称', width: 220 },
+              { name: 'description', title: '说明' }
             ]}
-            onChange={value => setTemplate((Array.isArray(value) ? value[0] : value) || null)}
+            onChange={pickTemplate}
+            footer={({ close, reload }) => {
+              reloadRef.current = reload;
+              return (
+                <Button
+                  type="link"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    close?.();
+                    onCreateTemplate?.(() => {
+                      reloadRef.current?.();
+                    });
+                  }}
+                >
+                  新建模板
+                </Button>
+              );
+            }}
           />
         ]}
       />
-      {template ? <SchemaRendererInner schema={template.schema || {}} showActions={false} /> : <FormInfo column={1} list={[<TextArea key="note" name="note" label="完成说明" rule="REQ" block />]} />}
+      <div className={style['complete-fields']}>
+        <div className={style['section-title']}>完成信息</div>
+        {template && hasFillFields(template.schema) ? (
+          <SchemaRendererInner schema={template.schema} showActions={false} />
+        ) : (
+          <FormInfo column={1} list={[<TextArea key="note" name="note" label="完成说明" rule="REQ" block placeholder="说明处理结果" />]} />
+        )}
+      </div>
     </div>
   );
 };
@@ -71,7 +155,7 @@ const SupplementRequestBody = ({ FormInfo, SchemaRendererInner, ajax }) => {
   const [template, setTemplate] = useState(null);
 
   return (
-    <div>
+    <div className={style['supplement-request']}>
       <FormInfo
         column={1}
         list={[
@@ -82,6 +166,7 @@ const SupplementRequestBody = ({ FormInfo, SchemaRendererInner, ajax }) => {
             single
             isPopup={false}
             allowClear
+            block
             labelKey="name"
             valueKey="id"
             placeholder="不选则让提单人填写多行文本"
@@ -100,7 +185,7 @@ const SupplementRequestBody = ({ FormInfo, SchemaRendererInner, ajax }) => {
           />
         ]}
       />
-      {template ? <SchemaRendererInner schema={template.schema || {}} showActions={false} /> : <div>默认使用多行文本，由提单人填写。</div>}
+      {template ? <SchemaRendererInner schema={template.schema || {}} showActions={false} /> : <div className={style['supplement-hint']}>默认使用多行文本，由提单人填写。</div>}
     </div>
   );
 };
@@ -122,6 +207,12 @@ const progressOf = status => {
 };
 
 const personIds = value => (Array.isArray(value) ? value : value ? [value] : []).map(item => (item && typeof item === 'object' ? item.id || item.value : item)).filter(Boolean);
+
+const COMMENT_COLORS = ['#4c6fff', '#0f9d8a', '#d48806', '#c4527a', '#5b6ee1'];
+
+const commentInitial = name => String(name || '?').trim().slice(0, 1) || '?';
+
+const commentColor = name => COMMENT_COLORS[[...String(name || '')].reduce((sum, char) => sum + char.charCodeAt(0), 0) % COMMENT_COLORS.length];
 
 const HANDLER_NEXT = {
   processing: [{ status: 'onHold', label: '挂起' }],
@@ -165,20 +256,31 @@ const TicketDetailPage = createWithRemoteLoader({
     'components-thirdparty:FormCreator@SchemaRendererInner',
     'components-core:InfoPage',
     'components-core:InfoPage@Flow',
-    'components-admin:Tenant@TenantUserSelect'
+    'components-admin:Tenant@TenantUserSelect',
+    'components-core:ButtonGroup@ButtonFooter',
+    'components-core:StateTag'
   ]
-})(({ remoteModules, layoutType = 'layout', mode = 'client' }) => {
-  const [usePreset, useGlobalContext, CorePage, SchemaContent, FormInfo, useFormModal, SchemaRendererInner, InfoPage, Flow, TenantUserSelect] = remoteModules;
+})(({ remoteModules, layoutType = 'layout', mode = 'client', baseUrl, ticketId, embedded = false }) => {
+  const [usePreset, useGlobalContext, CorePage, SchemaContent, FormInfo, useFormModal, SchemaRendererInner, InfoPage, Flow, TenantUserSelect, ButtonFooter, StateTag] = remoteModules;
   const { Form, SubmitButton } = FormInfo;
   const { ajax, apis } = usePreset();
   const memberApis = useMemo(() => buildMemberSelectApis(ajax, apis), [ajax, apis]);
   const { global } = useGlobalContext('userInfo');
   const companyName = global?.tenant?.name || '';
   const formModal = useFormModal();
-  const { id } = useParams();
+  const { id: routeId } = useParams();
+  const id = ticketId || routeId;
+  const { pathname } = useLocation();
   const PageView = layoutType === 'system-layout' ? Page : CorePage;
+  const listUrl = baseUrl ? `${baseUrl}/ticket` : pathname.replace(/\/ticket\/[^/]+$/, '/ticket');
+  const pageChrome = extra => (layoutType === 'system-layout' ? { back: true, extra } : { backUrl: listUrl, titleExtra: extra });
   const [detail, setDetail] = useState(null);
   const [commentFormKey, setCommentFormKey] = useState(0);
+  const eventFlowRef = useRef(null);
+
+  useLayoutEffect(() => {
+    paintAntd5FlowDots(eventFlowRef.current);
+  });
 
   const load = async () => {
     const data = unwrap(
@@ -202,16 +304,66 @@ const TicketDetailPage = createWithRemoteLoader({
   };
 
   if (!detail?.ticket) {
-    return <PageView title="工单详情" />;
+    if (embedded) {
+      return null;
+    }
+    return <PageView title="工单详情" {...pageChrome()} />;
   }
 
   const { ticket, comments = [], events = [], completion, supplement } = detail;
+  const meId = String(global?.tenantUserInfo?.id || '');
+  const assigneeIds = (ticket.assigneeIds || []).map(id => String(id));
+  const isAssignee = !!meId && assigneeIds.includes(meId);
+  const isReporter = !!meId && String(ticket.reporterTenantUserId || '') === meId;
+  const acting = mode === 'manage' || (!!detail.canHandle && (isAssignee || assigneeIds.length === 0));
+
+  const openCompleteTemplate = reload => {
+    const schemaRef = { current: null };
+    formModal({
+      title: '新建完成模板',
+      size: 'large',
+      width: 'calc(100vw - 48px)',
+      okText: '保存模板',
+      formProps: {
+        onSubmit: async values => {
+          try {
+            unwrap(
+              await ajax({
+                url: '/api/v1/ticket/complete-template/save',
+                method: 'POST',
+                data: {
+                  name: values.name,
+                  parentId: parentIdOf(values.parentId),
+                  enabled: true,
+                  usage: 'complete',
+                  schema: schemaRef.current
+                }
+              })
+            );
+            message.success('模板已创建');
+            reload?.();
+          } catch (error) {
+            message.error(error.message);
+            return false;
+          }
+        }
+      },
+      children: (
+        <TemplateCreateBody
+          purpose="complete"
+          onSchema={schema => {
+            schemaRef.current = schema;
+          }}
+        />
+      )
+    });
+  };
 
   const openComplete = () => {
     formModal({
       title: '完成工单',
-      size: 'large',
-      width: 'calc(100vw - 48px)',
+      className: style['complete-modal'],
+      width: 800,
       okText: '提交完成',
       formProps: {
         onSubmit: async values => {
@@ -219,7 +371,7 @@ const TicketDetailPage = createWithRemoteLoader({
           const templateId = picked && typeof picked === 'object' ? picked.id : picked || null;
           const answers = Object.fromEntries(Object.entries(values).filter(([key]) => key !== 'templateId' && key !== 'note'));
           try {
-            await run('/api/v1/ticket/manage/complete', {
+            await run(acting ? '/api/v1/ticket/manage/complete' : '/api/v1/ticket/complete', {
               id: ticket.id,
               templateId,
               answers: templateId ? answers : {},
@@ -231,7 +383,7 @@ const TicketDetailPage = createWithRemoteLoader({
           }
         }
       },
-      children: <CompleteBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} />
+      children: <CompleteBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} onCreateTemplate={openCompleteTemplate} />
     });
   };
 
@@ -241,7 +393,7 @@ const TicketDetailPage = createWithRemoteLoader({
       formProps: {
         onSubmit: async values => {
           try {
-            await run(mode === 'manage' ? '/api/v1/ticket/manage/status' : '/api/v1/ticket/status', {
+            await run(acting ? '/api/v1/ticket/manage/status' : '/api/v1/ticket/status', {
               id: ticket.id,
               status: 'processing',
               note: values.note
@@ -261,15 +413,15 @@ const TicketDetailPage = createWithRemoteLoader({
   const openRequestInfo = () => {
     formModal({
       title: '要求补充信息',
-      size: 'large',
-      width: 'calc(100vw - 48px)',
+      className: style['supplement-modal'],
+      width: 640,
       okText: '发送给提单人',
       formProps: {
         onSubmit: async values => {
           const picked = Array.isArray(values.templateId) ? values.templateId[0] : values.templateId;
           const templateId = picked && typeof picked === 'object' ? picked.id : picked || null;
           try {
-            await run('/api/v1/ticket/manage/request-info', { id: ticket.id, templateId });
+            await run(acting ? '/api/v1/ticket/manage/request-info' : '/api/v1/ticket/request-info', { id: ticket.id, templateId });
           } catch (error) {
             message.error(error.message);
             return false;
@@ -284,7 +436,7 @@ const TicketDetailPage = createWithRemoteLoader({
     const mentionIds = (Array.isArray(values.mentionIds) ? values.mentionIds : [])
       .map(item => (item && typeof item === 'object' ? item.value || item.id : item))
       .filter(Boolean);
-    const url = mode === 'manage' ? '/api/v1/ticket/manage/comment' : '/api/v1/ticket/comment';
+    const url = acting ? '/api/v1/ticket/manage/comment' : '/api/v1/ticket/comment';
     try {
       await run(url, {
         id: ticket.id,
@@ -300,25 +452,73 @@ const TicketDetailPage = createWithRemoteLoader({
   };
 
   const progress = progressOf(ticket.status);
+  const footerItems = [{ key: 'watch', label: detail.watching ? '取消关注' : '关注', primary: false, onClick: toggleWatch }];
+  if (acting && ticket.status === 'pending') {
+    footerItems.push({ key: 'accept', label: '受理', primary: true, onClick: () => run('/api/v1/ticket/manage/accept', { id: ticket.id }) });
+  }
+  if (acting && (ticket.status === 'processing' || ticket.status === 'onHold')) {
+    footerItems.push({ key: 'request', label: '要求补充信息', primary: false, onClick: openRequestInfo });
+  }
+  if (acting && ticket.status === 'processing') {
+    footerItems.push({ key: 'complete', label: '完成工单', primary: true, onClick: openComplete });
+  }
+  if (acting) {
+    (HANDLER_NEXT[ticket.status] || []).forEach(item => {
+      const reopen = ticket.status === 'done' && item.status === 'processing';
+      footerItems.push({
+        key: item.status,
+        label: item.label,
+        primary: ticket.status === 'onHold' || ticket.status === 'supplement' || reopen,
+        onClick: () => (reopen ? openReopen() : run(acting ? '/api/v1/ticket/manage/status' : '/api/v1/ticket/status', { id: ticket.id, status: item.status }))
+      });
+    });
+  }
+  if (mode === 'client' && isReporter && ticket.status === 'waiting') {
+    footerItems.push(
+      { key: 'reject', label: '退回处理中', primary: false, onClick: () => run('/api/v1/ticket/status', { id: ticket.id, status: 'processing' }) },
+      { key: 'confirm', label: '确认完成', primary: true, onClick: () => run('/api/v1/ticket/status', { id: ticket.id, status: 'done' }) }
+    );
+  }
+  if (mode === 'client' && isReporter && !acting && ticket.status === 'done') {
+    footerItems.push({ key: 'reopen', label: '重开', primary: true, onClick: openReopen });
+  }
+  const footerActions = [...footerItems.filter(item => !item.primary), ...footerItems.filter(item => item.primary)].map(item => (
+    <Button key={item.key} type={item.primary ? 'primary' : 'default'} onClick={item.onClick}>
+      {item.label}
+    </Button>
+  ));
 
-  return (
-    <PageView title={`${ticket.no} ${ticket.title}`}>
-      <InfoPage className={style['detail-page']}>
+  const useLayoutFooter = !embedded && layoutType === 'system-layout';
+  const detailBody = (
+      <div className={`${style['detail-page']}${embedded ? ` ${style['detail-embed']}` : ''}${useLayoutFooter ? ` ${style['detail-layout-footer']}` : ''}`}>
+      <InfoPage>
         <div className={style.section}>
           <Flow orientation="horizontal" current={ticket.status === 'done' ? progress.length - 1 : Math.max(0, progress.findIndex(item => item.status === 'process'))} dataSource={progress} />
           <div className={style['ticket-summary']}>
             <div className={style['summary-facts']}>
               <div className={style['summary-item']}>
                 <span className={style['summary-label']}>状态</span>
-                <Tag>{labelOf(STATUS_OPTIONS, ticket.status)}</Tag>
+                <StateTag type={STATUS_STATE[ticket.status] || 'default'} text={labelOf(STATUS_OPTIONS, ticket.status)} />
               </div>
               <div className={style['summary-item']}>
                 <span className={style['summary-label']}>优先级</span>
-                <Tag>{labelOf(PRIORITY_OPTIONS, ticket.priority)}</Tag>
+                <StateTag type={PRIORITY_STATE[ticket.priority] || 'default'} text={labelOf(PRIORITY_OPTIONS, ticket.priority)} />
               </div>
               <div className={style['summary-item']}>
                 <span className={style['summary-label']}>提单人</span>
                 <span>{ticket.reporterName || '—'}</span>
+              </div>
+              <div className={style['summary-item']}>
+                <span className={style['summary-label']}>SLA</span>
+                <StateTag type={SLA_STATE[ticket.sla?.type] || 'default'} text={ticket.sla?.text || '-'} />
+              </div>
+              <div className={style['summary-item']}>
+                <span className={style['summary-label']}>响应时限</span>
+                <span>{formatTime(ticket.responseDueAt) || '—'}</span>
+              </div>
+              <div className={style['summary-item']}>
+                <span className={style['summary-label']}>解决时限</span>
+                <span>{formatTime(ticket.resolveDueAt) || '—'}</span>
               </div>
             </div>
             <Form
@@ -331,7 +531,7 @@ const TicketDetailPage = createWithRemoteLoader({
                   return false;
                 }
                 try {
-                  await run(mode === 'manage' ? '/api/v1/ticket/manage/assign' : '/api/v1/ticket/assign', {
+                  await run(acting ? '/api/v1/ticket/manage/assign' : '/api/v1/ticket/assign', {
                     id: ticket.id,
                     assigneeIds
                   });
@@ -405,70 +605,62 @@ const TicketDetailPage = createWithRemoteLoader({
             <div className={style['comment-list']}>
               {comments.map(item => (
                 <div key={item.id} className={style.comment}>
-                  <div className={style['comment-head']}>
-                    <span className={style['comment-author']}>{item.authorName || '未知'}</span>
-                    {item.internal ? <Tag>内部备注</Tag> : null}
-                    <span className={style['comment-time']}>{formatTime(item.createdAt)}</span>
+                  <span className={style['comment-avatar']} style={{ background: commentColor(item.authorName) }}>
+                    {commentInitial(item.authorName)}
+                  </span>
+                  <div className={style['comment-main']}>
+                    <div className={style['comment-head']}>
+                      <span className={style['comment-author']}>{item.authorName || '未知'}</span>
+                      {item.internal ? <Tag>内部备注</Tag> : null}
+                      <span className={style['comment-time']}>{formatTime(item.createdAt)}</span>
+                    </div>
+                    <div className={style['comment-body']}>{item.content}</div>
+                    {item.mentionNames?.length ? <div className={style['comment-mention']}>提醒 {item.mentionNames.join('、')}</div> : null}
                   </div>
-                  <div className={style['comment-body']}>{item.content}</div>
-                  {item.mentionNames?.length ? <div className={style['comment-mention']}>提醒 {item.mentionNames.join('、')}</div> : null}
                 </div>
               ))}
             </div>
           ) : (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="还没有评论" />
           )}
-          <CommentForm key={commentFormKey} FormInfo={FormInfo} TenantUserSelect={TenantUserSelect} mode={mode} companyName={companyName} memberApis={memberApis} onSubmit={publish} />
+          <CommentForm key={commentFormKey} FormInfo={FormInfo} TenantUserSelect={TenantUserSelect} mode={acting ? 'manage' : mode} companyName={companyName} memberApis={memberApis} onSubmit={publish} />
         </div>
-        {events.length ? (
-          <div className={style.section}>
-            <div className={style['section-title']}>处理记录</div>
-            <div className={style['event-list']}>
-              {events.map(item => (
-                <div key={item.id} className={style.event}>
-                  <span className={style['comment-time']}>{formatTime(item.createdAt)}</span>
-                  <span>{eventText(item)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      {mode === 'manage' && ticket.status === 'pending' ? (
-        <Button type="primary" onClick={() => run('/api/v1/ticket/manage/accept', { id: ticket.id })}>
-          受理
-        </Button>
-      ) : null}
-      {mode === 'manage' && ticket.status === 'processing' ? (
-        <Space>
-          <Button type="primary" onClick={openComplete}>
-            完成工单
-          </Button>
-          <Button onClick={openRequestInfo}>要求补充信息</Button>
-        </Space>
-      ) : null}
-      {mode === 'manage' && ticket.status === 'onHold' ? (
-        <Button onClick={openRequestInfo}>要求补充信息</Button>
-      ) : null}
-      {mode === 'manage' ? (
-        <Space style={{ margin: '12px 0' }}>
-          {(HANDLER_NEXT[ticket.status] || []).map(item => (
-            <Button key={item.status} onClick={() => (ticket.status === 'done' && item.status === 'processing' ? openReopen() : run('/api/v1/ticket/manage/status', { id: ticket.id, status: item.status }))}>
-              {item.label}
-            </Button>
-          ))}
-        </Space>
-      ) : null}
-      {mode === 'client' && ticket.status === 'waiting' ? (
-        <Space>
-          <Button type="primary" onClick={() => run('/api/v1/ticket/status', { id: ticket.id, status: 'done' })}>
-            确认完成
-          </Button>
-          <Button onClick={() => run('/api/v1/ticket/status', { id: ticket.id, status: 'processing' })}>退回处理中</Button>
-        </Space>
-      ) : null}
-      {mode === 'client' && ticket.status === 'done' ? <Button onClick={openReopen}>重开</Button> : null}
-      <Button onClick={toggleWatch}>{detail.watching ? '取消关注' : '关注'}</Button>
+        <div className={style.section} ref={eventFlowRef}>
+          <div className={style['section-title']}>处理记录</div>
+          <Flow
+            orientation="vertical"
+            type="dot"
+            progressDot
+            dataSource={[...events]
+              .map((item, index) => ({ item, index }))
+              .sort((a, b) => new Date(b.item.createdAt).getTime() - new Date(a.item.createdAt).getTime() || b.index - a.index)
+              .map(({ item }) => ({
+                title: eventText(item),
+                description: formatTime(item.createdAt),
+                status: 'finish'
+              }))}
+          />
+        </div>
       </InfoPage>
+      {footerActions.length ? (
+        useLayoutFooter ? (
+          <Page.Footer>{footerActions}</Page.Footer>
+        ) : (
+          <ButtonFooter className={style['form-footer']} placement="bottomEnd">
+            {footerActions}
+          </ButtonFooter>
+        )
+      ) : null}
+      </div>
+  );
+
+  if (embedded) {
+    return detailBody;
+  }
+
+  return (
+    <PageView title={`${ticket.no} ${ticket.title}`} {...pageChrome()}>
+      {detailBody}
     </PageView>
   );
 });

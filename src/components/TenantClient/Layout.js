@@ -1,5 +1,5 @@
+import { useState } from 'react';
 import { createWithRemoteLoader } from '@kne/remote-loader';
-import { BankOutlined, LogoutOutlined, PartitionOutlined, SafetyCertificateOutlined, UserOutlined, UserSwitchOutlined } from '@ant-design/icons';
 import { Outlet } from 'react-router-dom';
 import SystemLayout from '@kne/system-layout';
 import '@kne/system-layout/dist/index.css';
@@ -7,6 +7,7 @@ import withLocale from './withLocale';
 import { useIntl } from '@kne/react-intl';
 import { withPublicUrl } from '../../commons/publicUrl';
 import ImSocket from '../Im/ImSocket';
+import { CompanyMenuIcon, HomeMenuIcon, LogoutMenuIcon, MailMenuIcon, OrgMenuIcon, PermissionMenuIcon, SwitchTenantMenuIcon, TicketMenuIcon, UserMenuIcon } from './MenuIcons';
 
 const COMPANY = ['setting:company-setting', 'setting:company-setting:view'];
 const ORG = ['setting:org', 'setting:org:view'];
@@ -34,7 +35,6 @@ const Layout = createWithRemoteLoader({
               formatMessage={formatMessage}
               usePermissionsPass={usePermissionsPass}
             >
-              <ImSocket baseUrl={baseUrl} />
               {children || <Outlet />}
             </TenantClientMenu>
           );
@@ -45,6 +45,7 @@ const Layout = createWithRemoteLoader({
 );
 
 const TenantClientMenu = ({ baseUrl, tenant, tenantUserInfo, logout, formatMessage, usePermissionsPass, children }) => {
+  const [messageCount, setMessageCount] = useState(0);
   const allowCompany = usePermissionsPass({ request: COMPANY });
   const allowOrg = usePermissionsPass({ request: ORG });
   const allowUser = usePermissionsPass({ request: USER });
@@ -55,19 +56,20 @@ const TenantClientMenu = ({ baseUrl, tenant, tenantUserInfo, logout, formatMessa
       path: '/',
       label: formatMessage({ id: 'ClientHome' }),
       toolbar: true,
-      icon: 'home'
+      icon: <HomeMenuIcon />
     },
     {
       path: '/ticket',
       label: formatMessage({ id: 'ClientTicket' }),
       toolbar: true,
-      icon: 'assignment'
+      icon: <TicketMenuIcon />
     },
     {
       path: '/chat',
       label: formatMessage({ id: 'ClientChat' }),
       toolbar: true,
-      icon: 'message'
+      badge: messageCount,
+      icon: <MailMenuIcon />
     },
     allowCompany
       ? {
@@ -75,8 +77,7 @@ const TenantClientMenu = ({ baseUrl, tenant, tenantUserInfo, logout, formatMessa
           groupLabel: formatMessage({ id: 'ClientMenuSetting' }),
           label: formatMessage({ id: 'ClientMenuCompany' }),
           path: '/setting/company',
-          toolbar: true,
-          icon: <BankOutlined />
+          icon: <CompanyMenuIcon />
         }
       : null,
     allowOrg
@@ -85,8 +86,7 @@ const TenantClientMenu = ({ baseUrl, tenant, tenantUserInfo, logout, formatMessa
           groupLabel: formatMessage({ id: 'ClientMenuSetting' }),
           label: formatMessage({ id: 'ClientMenuOrg' }),
           path: '/setting/org',
-          toolbar: true,
-          icon: <PartitionOutlined />
+          icon: <OrgMenuIcon />
         }
       : null,
     allowUser
@@ -95,8 +95,7 @@ const TenantClientMenu = ({ baseUrl, tenant, tenantUserInfo, logout, formatMessa
           groupLabel: formatMessage({ id: 'ClientMenuSetting' }),
           label: formatMessage({ id: 'ClientMenuUser' }),
           path: '/setting/user',
-          toolbar: true,
-          icon: <UserOutlined />
+          icon: <UserMenuIcon />
         }
       : null,
     allowPermission
@@ -105,15 +104,14 @@ const TenantClientMenu = ({ baseUrl, tenant, tenantUserInfo, logout, formatMessa
           groupLabel: formatMessage({ id: 'ClientMenuSetting' }),
           label: formatMessage({ id: 'ClientMenuPermission' }),
           path: '/setting/permission',
-          toolbar: true,
-          icon: <SafetyCertificateOutlined />
+          icon: <PermissionMenuIcon />
         }
       : null,
     {
       group: 'account',
       groupLabel: formatMessage({ id: 'ClientMenuAccount' }),
       label: formatMessage({ id: 'ClientMenuSwitchTenant' }),
-      icon: <UserSwitchOutlined />,
+      icon: <SwitchTenantMenuIcon />,
       onClick: () => {
         window.location.href = withPublicUrl('/login-tenant');
       }
@@ -122,7 +120,7 @@ const TenantClientMenu = ({ baseUrl, tenant, tenantUserInfo, logout, formatMessa
       group: 'account',
       groupLabel: formatMessage({ id: 'ClientMenuAccount' }),
       label: formatMessage({ id: 'ClientMenuLogout' }),
-      icon: <LogoutOutlined />,
+      icon: <LogoutMenuIcon />,
       onClick: logout
     }
   ].filter(Boolean);
@@ -142,6 +140,7 @@ const TenantClientMenu = ({ baseUrl, tenant, tenantUserInfo, logout, formatMessa
         items: menuItems
       }}
     >
+      <ImSocket baseUrl={baseUrl} onUnread={setMessageCount} />
       {children}
     </SystemLayout>
   );

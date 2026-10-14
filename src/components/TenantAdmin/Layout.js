@@ -40,6 +40,7 @@ const Layout = createWithRemoteLoader({
                         { key: 'template', title: formatMessage({ id: 'TenantMenuTemplate' }), path: `${baseUrl}/template` },
                         { key: 'complete-template', title: formatMessage({ id: 'TenantMenuCompleteTemplate' }), path: `${baseUrl}/complete-template` },
                         { key: 'supplement-template', title: formatMessage({ id: 'TenantMenuSupplementTemplate' }), path: `${baseUrl}/supplement-template` },
+                        { key: 'sla', title: formatMessage({ id: 'TenantMenuSla' }), path: `${baseUrl}/sla` },
                         { key: 'sample', title: formatMessage({ id: 'TenantMenuSample' }), path: `${baseUrl}/sample` },
                         { key: 'company', title: formatMessage({ id: 'TenantMenuCompany' }), path: `${baseUrl}/setting/company` },
                         { key: 'org', title: formatMessage({ id: 'TenantMenuGroup' }), path: `${baseUrl}/setting/org` },

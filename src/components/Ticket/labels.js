@@ -16,6 +16,29 @@ export const PRIORITY_OPTIONS = [
 
 export const labelOf = (options, value) => options.find(item => item.value === value)?.label || value || '-';
 
+export const STATUS_STATE = {
+  pending: 'info',
+  processing: 'progress',
+  supplement: 'progress',
+  onHold: 'default',
+  waiting: 'info',
+  done: 'success'
+};
+
+export const PRIORITY_STATE = {
+  low: 'default',
+  medium: 'info',
+  high: 'progress',
+  urgent: 'danger'
+};
+
+export const SLA_STATE = {
+  success: 'success',
+  danger: 'danger',
+  processing: 'progress',
+  default: 'default'
+};
+
 export const unwrap = response => {
   const body = response?.data ?? response;
   if (body && (body.code === 0 || body.code === 200)) {

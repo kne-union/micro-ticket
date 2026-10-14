@@ -5,6 +5,7 @@ export default {
   TenantMenuTemplate: '工单模板',
   TenantMenuCompleteTemplate: '完成模板',
   TenantMenuSupplementTemplate: '补充模板',
+  TenantMenuSla: 'SLA',
   TenantMenuSample: '示例模块',
   TenantMenuSetting: '设置',
   TenantMenuCompany: '公司信息',
