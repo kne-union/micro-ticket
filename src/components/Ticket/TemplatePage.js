@@ -3,6 +3,7 @@ import { App, Button, Space } from 'antd';
 import { createWithRemoteLoader } from '@kne/remote-loader';
 import { Page } from '@kne/system-layout';
 import { unwrap } from './labels';
+import { TICKET_PERMISSION, hasAny } from './permissions';
 import style from './style.module.scss';
 
 const GROUP_TYPE = 'ticket-template';
@@ -261,9 +262,11 @@ const ImportPicker = createWithRemoteLoader({
 });
 
 const TemplatePage = createWithRemoteLoader({
-  modules: ['components-thirdparty:FormCreator', 'components-core:FormInfo@useFormModal', 'components-core:Global@usePreset', 'components-core:Layout@Page']
+  modules: ['components-thirdparty:FormCreator', 'components-core:FormInfo@useFormModal', 'components-core:Global@usePreset', 'components-core:Layout@Page', 'components-core:Permissions@usePermissions']
 })(({ remoteModules, layoutType = 'layout', purpose = 'content' }) => {
-  const [FormCreator, useFormModal, usePreset, CorePage] = remoteModules;
+  const [FormCreator, useFormModal, usePreset, CorePage, usePermissions] = remoteModules;
+  const { permissions } = usePermissions();
+  const canEdit = hasAny(permissions, TICKET_PERMISSION.templateEdit);
   const { ajax } = usePreset();
   const { message } = App.useApp();
   const formModal = useFormModal();
@@ -346,14 +349,14 @@ const TemplatePage = createWithRemoteLoader({
     });
   };
 
-  const createButton = (
+  const createButton = canEdit ? (
     <Space>
       {purpose === 'content' ? <Button onClick={openImport}>导入公共模板</Button> : null}
       <Button type="primary" onClick={() => openEditor(null)}>
         新建模板
       </Button>
     </Space>
-  );
+  ) : null;
 
   return (
     <PageView title={current.title} extra={createButton} titleExtra={createButton}>

@@ -121,7 +121,8 @@ const createServer = () => {
 
       fastify.register(require('@kne/fastify-tenant'), {
         prefix: `${options.prefix}/tenant`,
-        getUserModel: options.getUserModel
+        getUserModel: options.getUserModel,
+        permissionsProfile: path.resolve(__dirname, './libs/permissions.js')
       });
     })
   );
