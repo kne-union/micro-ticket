@@ -4,7 +4,7 @@ import { MessageInput, MessageList } from '@kne/react-bot';
 import '@kne/react-bot/dist/index.css';
 import { MOBILE_BREAKPOINT, useIsMobile } from '@kne/responsive-utils';
 import { Page } from '@kne/system-layout';
-import { Button, Segmented } from 'antd';
+import { Button, Segmented, message as toast } from 'antd';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import TicketDetailPage from '../Ticket/TicketDetailPage';
 import { openImSocket, refreshImUnread, sendSocket } from './socket';
@@ -104,6 +104,10 @@ const ChatPage = createWithRemoteLoader({
     });
     loadNotices();
     const socket = openImSocket(event => {
+      if (event.type === 'error') {
+        toast.error(event.payload?.message || '消息发送失败');
+        return;
+      }
       if (event.type === 'systemMessage') {
         loadNotices();
         return;
@@ -318,7 +322,13 @@ const ChatPage = createWithRemoteLoader({
                       if (!content || !activeId) {
                         return;
                       }
-                      sendSocket(socketRef.current, 'sendMessage', { conversationId: activeId, content, type: 'text' });
+                      sendSocket(socketRef.current, 'sendMessage', {
+                        conversationId: activeId,
+                        content,
+                        type: 'text',
+                        clientMsgId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                        sentAt: Date.now()
+                      });
                     }}
                   />
                 </div>

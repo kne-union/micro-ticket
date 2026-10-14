@@ -107,7 +107,7 @@ module.exports = fp(async fastify => {
     };
 
   const loadUserNames = async (actor, ids) => {
-    const unique = [...new Set((ids || []).map(toId).filter(Boolean))];
+    const unique = [...new Set((ids || []).flatMap(id => (id == null ? [] : String(id).split(','))).map(toId).filter(Boolean))];
     if (!unique.length) {
       return {};
     }
