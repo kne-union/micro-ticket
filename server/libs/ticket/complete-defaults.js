@@ -76,6 +76,43 @@ const COMPLETE_DEFAULTS = [
   }
 ];
 
+const SUPPLEMENT_DEFAULTS = [
+  {
+    name: '故障现场信息',
+    description: '请提单人补充发生时间、复现步骤和报错信息',
+    schema: schemaOf('故障现场信息', [
+      field('happenedAt', '发生时间', 'Input'),
+      field('steps', '复现步骤'),
+      field('errorMessage', '报错信息', 'TextArea', ''),
+      field('requestId', '请求编号', 'Input', '')
+    ])
+  },
+  {
+    name: '账号权限信息',
+    description: '开通或调整权限前确认账号、系统和权限范围',
+    schema: schemaOf('账号权限信息', [
+      field('account', '账号或邮箱', 'Input'),
+      field('system', '涉及系统', 'Input'),
+      field('permission', '需要的权限'),
+      field('approver', '审批人', 'Input', '')
+    ])
+  },
+  {
+    name: '报销票据补充',
+    description: '票据缺失或信息不全时请提单人补充',
+    schema: schemaOf('报销票据补充', [field('invoice', '发票信息（号码、金额）'), field('note', '补充说明', 'TextArea', '')])
+  },
+  {
+    name: '需求详情补充',
+    description: '需求描述不清时请提单人补充场景和期望',
+    schema: schemaOf('需求详情补充', [
+      field('scenario', '使用场景'),
+      field('expect', '期望效果'),
+      field('deadline', '期望完成时间', 'Input', '')
+    ])
+  }
+];
+
 const hasBlocks = schema => Array.isArray(schema?.blocks) && schema.blocks.some(block => Array.isArray(block.list) && block.list.length > 0);
 
 const LEGACY_SUPPLEMENT = {
@@ -85,6 +122,7 @@ const LEGACY_SUPPLEMENT = {
 
 module.exports = {
   COMPLETE_DEFAULTS,
+  SUPPLEMENT_DEFAULTS,
   hasBlocks,
   LEGACY_SUPPLEMENT
 };

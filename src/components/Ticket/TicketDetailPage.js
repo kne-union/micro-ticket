@@ -150,9 +150,10 @@ const CompleteBody = ({ FormInfo, SchemaRendererInner, ajax, onCreateTemplate })
   );
 };
 
-const SupplementRequestBody = ({ FormInfo, SchemaRendererInner, ajax }) => {
+const SupplementRequestBody = ({ FormInfo, SchemaRendererInner, ajax, onCreateTemplate }) => {
   const { SuperSelectTableList } = FormInfo.fields;
   const [template, setTemplate] = useState(null);
+  const reloadRef = useRef(null);
 
   return (
     <div className={style['supplement-request']}>
@@ -182,6 +183,23 @@ const SupplementRequestBody = ({ FormInfo, SchemaRendererInner, ajax }) => {
               { name: 'description', title: '说明', width: 360 }
             ]}
             onChange={value => setTemplate((Array.isArray(value) ? value[0] : value) || null)}
+            footer={({ close, reload }) => {
+              reloadRef.current = reload;
+              return (
+                <Button
+                  type="link"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    close?.();
+                    onCreateTemplate?.(() => {
+                      reloadRef.current?.();
+                    });
+                  }}
+                >
+                  新建模板
+                </Button>
+              );
+            }}
           />
         ]}
       />
@@ -317,10 +335,10 @@ const TicketDetailPage = createWithRemoteLoader({
   const isReporter = !!meId && String(ticket.reporterTenantUserId || '') === meId;
   const acting = mode === 'manage' || (!!detail.canHandle && (isAssignee || assigneeIds.length === 0));
 
-  const openCompleteTemplate = reload => {
+  const openTemplateCreator = usage => reload => {
     const schemaRef = { current: null };
     formModal({
-      title: '新建完成模板',
+      title: usage === 'supplement' ? '新建补充模板' : '新建完成模板',
       size: 'large',
       width: 'calc(100vw - 48px)',
       okText: '保存模板',
@@ -335,7 +353,7 @@ const TicketDetailPage = createWithRemoteLoader({
                   name: values.name,
                   parentId: parentIdOf(values.parentId),
                   enabled: true,
-                  usage: 'complete',
+                  usage,
                   schema: schemaRef.current
                 }
               })
@@ -350,7 +368,7 @@ const TicketDetailPage = createWithRemoteLoader({
       },
       children: (
         <TemplateCreateBody
-          purpose="complete"
+          purpose={usage}
           onSchema={schema => {
             schemaRef.current = schema;
           }}
@@ -383,7 +401,7 @@ const TicketDetailPage = createWithRemoteLoader({
           }
         }
       },
-      children: <CompleteBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} onCreateTemplate={openCompleteTemplate} />
+      children: <CompleteBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} onCreateTemplate={openTemplateCreator('complete')} />
     });
   };
 
@@ -428,7 +446,7 @@ const TicketDetailPage = createWithRemoteLoader({
           }
         }
       },
-      children: <SupplementRequestBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} />
+      children: <SupplementRequestBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} onCreateTemplate={openTemplateCreator('supplement')} />
     });
   };
 
