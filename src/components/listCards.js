@@ -1,3 +1,4 @@
+import { Empty } from 'antd';
 import style from './listCards.module.scss';
 
 export const CARD_COLUMNS = [
@@ -17,20 +18,18 @@ export const optionExtra = (columns, item) => {
 };
 
 export const RecordCards = ({ FlexBox, variant = 'card', dataSource = [], renderToolbar, renderItem }) => {
-  if (!dataSource.length) {
-    return null;
-  }
   const toolbar = typeof renderToolbar === 'function' ? renderToolbar() : null;
-  const cards =
-    variant === 'mobile' || !FlexBox ? (
-      <div className={style.stack}>
-        {dataSource.map(item => (
-          <div key={item.id}>{renderItem(item, 'mobile')}</div>
-        ))}
-      </div>
-    ) : (
-      <FlexBox columns={CARD_COLUMNS} dataSource={dataSource} rowKey="id" gutter={[12, 12]} renderItem={item => <FlexBox.Item>{renderItem(item, 'card')}</FlexBox.Item>} />
-    );
+  const cards = !dataSource.length ? (
+    <Empty className={style.empty} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+  ) : variant === 'mobile' || !FlexBox ? (
+    <div className={style.stack}>
+      {dataSource.map(item => (
+        <div key={item.id}>{renderItem(item, 'mobile')}</div>
+      ))}
+    </div>
+  ) : (
+    <FlexBox columns={CARD_COLUMNS} dataSource={dataSource} rowKey="id" gutter={[12, 12]} renderItem={item => <FlexBox.Item>{renderItem(item, 'card')}</FlexBox.Item>} />
+  );
 
   return (
     <div className={style.wrap}>
