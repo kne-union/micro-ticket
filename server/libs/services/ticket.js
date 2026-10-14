@@ -926,6 +926,9 @@ module.exports = fp(async fastify => {
       await assertHandler(actor);
     }
     const ticket = await loadTicket(actor, id, { asHandler });
+    if (['waiting', 'done'].includes(ticket.status)) {
+      throw httpError(400, '待确认和已完成的工单不能修改处理人');
+    }
     const requested = idListOf(assigneeIds && assigneeIds.length ? assigneeIds : assigneeTenantUserId);
     if (!requested.length) {
       throw httpError(400, '请选择处理人');
