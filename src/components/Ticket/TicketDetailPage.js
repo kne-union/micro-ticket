@@ -521,31 +521,38 @@ const TicketDetailPage = createWithRemoteLoader({
                 <span>{formatTime(ticket.resolveDueAt) || '—'}</span>
               </div>
             </div>
-            <Form
-              key={(ticket.assigneeIds || []).join(',')}
-              data={{ assigneeIds: ticket.assignees || [] }}
-              onSubmit={async values => {
-                const assigneeIds = personIds(values.assigneeIds);
-                if (!assigneeIds.length) {
-                  message.warning('请选择处理人');
-                  return false;
-                }
-                try {
-                  await run(acting ? '/api/v1/ticket/manage/assign' : '/api/v1/ticket/assign', {
-                    id: ticket.id,
-                    assigneeIds
-                  });
-                } catch (error) {
-                  message.error(error.message);
-                  return false;
-                }
-              }}
-            >
-              <div className={style['summary-assign']}>
-                <TenantUserSelect.Input name="assigneeIds" label="处理人" rule="REQ" single={false} isPopup placeholder="请选择处理人" companyName={companyName} orgApi={memberApis.orgApi} userApi={memberApis.userApi} />
-                <SubmitButton type="primary">指派</SubmitButton>
+            {['waiting', 'done'].includes(ticket.status) ? (
+              <div className={style['summary-item']}>
+                <span className={style['summary-label']}>处理人</span>
+                <span>{ticket.assigneeName || '—'}</span>
               </div>
-            </Form>
+            ) : (
+              <Form
+                key={(ticket.assigneeIds || []).join(',')}
+                data={{ assigneeIds: ticket.assignees || [] }}
+                onSubmit={async values => {
+                  const assigneeIds = personIds(values.assigneeIds);
+                  if (!assigneeIds.length) {
+                    message.warning('请选择处理人');
+                    return false;
+                  }
+                  try {
+                    await run(acting ? '/api/v1/ticket/manage/assign' : '/api/v1/ticket/assign', {
+                      id: ticket.id,
+                      assigneeIds
+                    });
+                  } catch (error) {
+                    message.error(error.message);
+                    return false;
+                  }
+                }}
+              >
+                <div className={style['summary-assign']}>
+                  <TenantUserSelect.Input name="assigneeIds" label="处理人" rule="REQ" single={false} isPopup placeholder="请选择处理人" companyName={companyName} orgApi={memberApis.orgApi} userApi={memberApis.userApi} />
+                  <SubmitButton type="primary">指派</SubmitButton>
+                </div>
+              </Form>
+            )}
           </div>
         </div>
         <div className={style.section}>
