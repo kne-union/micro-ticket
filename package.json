@@ -1,6 +1,6 @@
 {
   "name": "@kne/micro-ticket",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "多租户工单系统",
   "scripts": {
     "init": "node scripts/post-init.js && npm run init-server && husky && npx @kne/npm-tools deployPrompts fastify-project",

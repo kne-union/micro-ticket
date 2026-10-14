@@ -215,7 +215,8 @@ module.exports = fp(async fastify => {
   };
 
   const permissionCodesOf = actor => {
-    const permissions = actor.permissions || [];
+    // fastify-tenant 用 setDataValue 挂权限码，不是模型字段，直接读属性拿不到
+    const permissions = (typeof actor.get === 'function' ? actor.get('permissions') : actor.permissions) || [];
     return Array.isArray(permissions) ? permissions : permissions.codes || [];
   };
 
