@@ -673,7 +673,11 @@ module.exports = fp(async fastify => {
       Object.assign(where, await assignedToActor(actor));
     }
     if (query.status) {
-      where.status = query.status;
+      const statuses = String(query.status)
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+      where.status = statuses.length > 1 ? { [Op.in]: statuses } : statuses[0];
     }
     if (query.priority) {
       where.priority = query.priority;

@@ -34,6 +34,8 @@ const ChatPage = createWithRemoteLoader({
   const [pageNarrow, setPageNarrow] = useState(false);
   const socketRef = useRef(null);
   const selectionRef = useRef(0);
+  const activeIdRef = useRef(null);
+  const lastReadRef = useRef('');
   const [me, setMe] = useState(null);
   const [colleagues, setColleagues] = useState([]);
   const [notices, setNotices] = useState([]);
@@ -47,7 +49,21 @@ const ChatPage = createWithRemoteLoader({
   const loadNotices = async () => {
     const { data } = await ajax({ url: '/api/v1/im/system-messages', params: { page: 1, pageSize: 20 } });
     setNotices(data?.data?.list || []);
-    ajax({ url: '/api/v1/im/system-messages/read-all', method: 'POST' })
+  };
+
+  const markNoticeRead = item => {
+    if (item.isRead) {
+      return;
+    }
+    setNotices(current => current.map(notice => (notice.id === item.id ? { ...notice, isRead: true } : notice)));
+    ajax({ url: `/api/v1/im/system-messages/${item.id}/read`, method: 'POST', data: {} })
+      .catch(() => null)
+      .finally(() => refreshImUnread());
+  };
+
+  const readAllNotices = () => {
+    setNotices(current => current.map(notice => ({ ...notice, isRead: true })));
+    ajax({ url: '/api/v1/im/system-messages/read-all', method: 'POST', data: {} })
       .catch(() => null)
       .finally(() => refreshImUnread());
   };
@@ -117,6 +133,9 @@ const ChatPage = createWithRemoteLoader({
         if (!message) {
           return;
         }
+        if (String(message.conversationId) !== String(activeIdRef.current)) {
+          return;
+        }
         setMessages(current => (current.some(item => item.id === message.id) ? current : current.concat(message)));
       }
     });
@@ -128,6 +147,7 @@ const ChatPage = createWithRemoteLoader({
   }, [ajax]);
 
   useEffect(() => {
+    activeIdRef.current = activeId;
     if (!activeId) {
       setMessages([]);
       setMembers([]);
@@ -140,6 +160,30 @@ const ChatPage = createWithRemoteLoader({
       setMembers(data?.data?.members || []);
     });
   }, [activeId, ajax]);
+
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!activeId || !last?.id || String(last.conversationId) !== String(activeId)) {
+      return undefined;
+    }
+    const key = `${activeId}:${last.id}`;
+    if (lastReadRef.current === key) {
+      return undefined;
+    }
+    const socket = socketRef.current;
+    const markRead = () => {
+      lastReadRef.current = key;
+      sendSocket(socket, 'readMessages', { conversationId: activeId, lastMessageId: last.id });
+      // readMessages 没有回执，稍等服务端落库后再刷新导航未读数
+      setTimeout(refreshImUnread, 500);
+    };
+    if (socket?.readyState === WebSocket.OPEN) {
+      markRead();
+      return undefined;
+    }
+    socket?.addEventListener('open', markRead, { once: true });
+    return () => socket?.removeEventListener('open', markRead);
+  }, [activeId, messages]);
 
   const memberUser = useMemo(() => {
     const map = {};
@@ -162,6 +206,7 @@ const ChatPage = createWithRemoteLoader({
   });
 
   const openNotice = item => {
+    markNoticeRead(item);
     selectionRef.current += 1;
     setActiveId(null);
     setActiveName('');
@@ -225,6 +270,7 @@ const ChatPage = createWithRemoteLoader({
 
   const showList = !narrow || !thread;
   const showThread = !narrow || !!thread;
+  const unreadNotices = notices.filter(item => !item.isRead).length;
 
   return (
     <Page title="消息">
@@ -237,16 +283,28 @@ const ChatPage = createWithRemoteLoader({
                 value={pane}
                 onChange={setPane}
                 options={[
-                  { label: `通知${notices.length ? ` ${notices.length}` : ''}`, value: 'notice' },
+                  { label: `通知${unreadNotices ? ` ${unreadNotices}` : ''}`, value: 'notice' },
                   { label: '同事', value: 'people' }
                 ]}
               />
+              {pane === 'notice' && unreadNotices ? (
+                <div className={style.readAll}>
+                  <Button type="link" size="small" onClick={readAllNotices}>
+                    全部已读
+                  </Button>
+                </div>
+              ) : null}
             </div>
             <div className={style.list}>
               {pane === 'notice' ? (
                 notices.length ? (
                   notices.map(item => (
-                    <button key={item.id} type="button" className={`${style.row}${thread?.kind === 'ticket' && thread.key === item.id ? ` ${style.active}` : ''}`} onClick={() => openNotice(item)}>
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`${style.row}${item.isRead ? ` ${style.read}` : ''}${thread?.kind === 'ticket' && thread.key === item.id ? ` ${style.active}` : ''}`}
+                      onClick={() => openNotice(item)}
+                    >
                       <span className={`${style.avatar} ${style['avatar-notice']}`}>
                         <BellOutlined />
                       </span>
@@ -254,6 +312,7 @@ const ChatPage = createWithRemoteLoader({
                         <span className={style.name}>{item.title}</span>
                         <span className={style.preview}>{item.content}</span>
                       </span>
+                      {item.isRead ? null : <span className={style.unreadDot} aria-label="未读" />}
                     </button>
                   ))
                 ) : (
