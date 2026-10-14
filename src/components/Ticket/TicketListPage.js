@@ -15,6 +15,8 @@ const STATUS_TAG = {
   done: { type: 'success', text: '已完成' }
 };
 
+const SCOPE_LABEL = { assigned: '指派给我的', created: '我发起的', all: '全部' };
+
 const TicketListPage = createWithRemoteLoader({
   modules: ['components-admin:BizUnit', 'components-core:Filter', 'components-core:Global@usePreset', 'components-core:FlexBox']
 })(({ remoteModules, layoutType = 'layout', mode = 'client', baseUrl }) => {
@@ -164,6 +166,7 @@ const TicketListPage = createWithRemoteLoader({
             }
           : undefined
       }
+      searchParamsValue={[{ name: 'status', label: '状态', labelKey: 'statusLabel' }]}
       getColumns={getColumns}
       getActionList={({ data }) => [
         {
@@ -174,13 +177,13 @@ const TicketListPage = createWithRemoteLoader({
       ]}
       filter={{
         list: filterList,
-        ...(mode === 'client' && scope !== 'all'
+        ...(mode === 'client'
           ? {
               defaultValue: [
                 {
                   name: 'scope',
                   label: '范围',
-                  value: { value: scope, label: scope === 'created' ? '我发起的' : '指派给我的' }
+                  value: { value: scope, label: SCOPE_LABEL[scope] }
                 }
               ]
             }
@@ -222,8 +225,9 @@ const TicketListPage = createWithRemoteLoader({
                         name: 'scope',
                         label: '范围',
                         list: [
-                          { label: '指派给我的', value: 'assigned' },
-                          { label: '我发起的', value: 'created' }
+                          { label: SCOPE_LABEL.assigned, value: 'assigned' },
+                          { label: SCOPE_LABEL.created, value: 'created' },
+                          { label: SCOPE_LABEL.all, value: 'all' }
                         ]
                       },
                       tabProps: {

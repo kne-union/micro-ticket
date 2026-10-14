@@ -119,6 +119,25 @@
   font-size: 13px;
 }
 
+.read .name {
+  color: #4b5563;
+  font-weight: 400;
+}
+
+.unreadDot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff4d4f;
+}
+
+.readAll {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
 .thread {
   display: flex;
   flex: 1;

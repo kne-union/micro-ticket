@@ -14,12 +14,15 @@ const priorityText = value => {
   return `${label}优先级`;
 };
 
+// status 与服务端 summary 的统计口径一致，多个状态用逗号分隔
 const STATS = [
-  { key: 'assignedOpen', label: '待我处理', hint: '指派给我、尚未完成', scope: 'assigned' },
-  { key: 'waitingConfirm', label: '待我确认', hint: '处理完毕等我确认', scope: 'created' },
-  { key: 'createdOpen', label: '我发起进行中', hint: '我提交、还没关闭', scope: 'created' },
-  { key: 'done', label: '已完成', hint: '我参与且已完成', scope: 'assigned' }
+  { key: 'assignedOpen', label: '待我处理', hint: '指派给我、尚未完成', scope: 'assigned', status: 'pending,processing,onHold,supplement' },
+  { key: 'waitingConfirm', label: '待我确认', hint: '处理完毕等我确认', scope: 'created', status: 'waiting' },
+  { key: 'createdOpen', label: '我发起进行中', hint: '我提交、还没关闭', scope: 'created', status: 'pending,processing,onHold,supplement,waiting' },
+  { key: 'done', label: '已完成', hint: '我参与且已完成', scope: 'all', status: 'done' }
 ];
+
+const statListUrl = (baseUrl, item) => `${baseUrl}/ticket?${new URLSearchParams({ scope: item.scope, status: item.status, statusLabel: item.label })}`;
 
 const greeting = () => {
   const hour = new Date().getHours();
@@ -109,7 +112,7 @@ const Home = createWithRemoteLoader({
 
         <div className={style['stats']}>
           {STATS.map(item => (
-            <div key={item.key} className={style['stat']} onClick={() => navigate(`${baseUrl}/ticket?scope=${item.scope}`)}>
+            <div key={item.key} className={style['stat']} onClick={() => navigate(statListUrl(baseUrl, item))}>
               <div className={style['stat-label']}>{item.label}</div>
               <div className={style['stat-value']}>{stats[item.key] ?? '-'}</div>
               <div className={style['stat-hint']}>{item.hint}</div>
