@@ -1,7 +1,10 @@
 const fp = require('fastify-plugin');
-const { PRIORITIES, statusLabel, allowedTransition, reopenNeedsReason, isOverdue, notifyTargetIds } = require('../ticket/rules');
+const { PRIORITIES, statusLabel, allowedTransition, reopenNeedsReason, isOverdue, autoCloseAt, notifyTargetIds } = require('../ticket/rules');
 const { DEFAULT_POLICY, dueDates, statusClockPatch, dueEscalation, slaTag, normalizePolicy } = require('../ticket/sla');
 const { COMPLETE_DEFAULTS, SUPPLEMENT_DEFAULTS, hasBlocks, LEGACY_SUPPLEMENT } = require('../ticket/complete-defaults');
+const ticketPermissions = require('../permissions');
+
+const { TICKET_PERMISSION, PRESET_ROLES } = ticketPermissions;
 
 const httpError = (statusCode, message) => {
   const error = new Error(message);
@@ -89,11 +92,15 @@ module.exports = fp(async fastify => {
     };
 
     const handlerPoolIds = async actor => {
-      const adminRoles = await fastify.tenant.models.tenantRole.findAll({
-        where: { tenantId: tenantIdOf(actor), type: 'system', code: 'admin', status: 'open' },
-        attributes: ['id']
+      const roles = await fastify.tenant.models.tenantRole.findAll({
+        where: { tenantId: tenantIdOf(actor), status: 'open' },
+        attributes: ['id', 'type', 'code', 'permissions']
       });
-      const roleIds = new Set(adminRoles.map(item => toId(item.id)));
+      const roleIds = new Set(
+        roles
+          .filter(role => (role.type === 'system' && role.code === 'admin') || jsonList(role.permissions).includes(TICKET_PERMISSION.process))
+          .map(item => toId(item.id))
+      );
       if (!roleIds.size) {
         return [];
       }
@@ -107,7 +114,8 @@ module.exports = fp(async fastify => {
     };
 
   const loadUserNames = async (actor, ids) => {
-    const unique = [...new Set((ids || []).flatMap(id => (id == null ? [] : String(id).split(','))).map(toId).filter(Boolean))];
+    // SLA 升级事件的操作人是 'sla'，Postgres 的 bigint 列不能拿非数字去查
+    const unique = [...new Set((ids || []).flatMap(id => (id == null ? [] : String(id).split(','))).map(toId).filter(id => /^\d+$/.test(id)))];
     if (!unique.length) {
       return {};
     }
@@ -206,18 +214,39 @@ module.exports = fp(async fastify => {
     return count > 0;
   };
 
-  const isHandler = async actor => {
+  const permissionCodesOf = actor => {
     const permissions = actor.permissions || [];
-    const codes = Array.isArray(permissions) ? permissions : permissions.codes || [];
-    if (codes.some(code => code === 'ticket' || String(code).startsWith('ticket:'))) {
-      return true;
-    }
-    return isTenantAdmin(actor);
+    return Array.isArray(permissions) ? permissions : permissions.codes || [];
   };
 
-  const assertHandler = async actor => {
-    if (!(await isHandler(actor))) {
-      throw httpError(403, '没有工单处理权限');
+  const can = async (actor, ...codes) => {
+    const owned = permissionCodesOf(actor);
+    return codes.some(code => owned.includes(code)) || isTenantAdmin(actor);
+  };
+
+  const assertCan = async (actor, ...codes) => {
+    if (!(await can(actor, ...codes))) {
+      throw httpError(403, '没有对应的工单权限');
+    }
+  };
+
+  const isAssigneeOf = async (actor, ticket) => {
+    const actorId = actorIdOf(actor);
+    if (toId(ticket.assigneeTenantUserId) === actorId) {
+      return true;
+    }
+    const linked = await models().ticketAssignee.count({
+      where: { tenantId: tenantIdOf(actor), ticketId: toId(ticket.id), tenantUserId: actorId }
+    });
+    return linked > 0;
+  };
+
+  // 被指派的同事不需要处理权限也能处理自己名下的工单
+  const canProcess = async (actor, ticket) => (await can(actor, TICKET_PERMISSION.process)) || isAssigneeOf(actor, ticket);
+
+  const assertProcess = async (actor, ticket) => {
+    if (!(await canProcess(actor, ticket))) {
+      throw httpError(403, '没有处理这张工单的权限');
     }
   };
 
@@ -277,16 +306,20 @@ module.exports = fp(async fastify => {
     if (!ticket) {
       throw httpError(404, '工单不存在');
     }
-    if (!asHandler) {
-      const actorId = actorIdOf(actor);
-      const isReporter = toId(ticket.reporterTenantUserId) === actorId;
-      const linked = await models().ticketAssignee.count({
-        where: { tenantId: tenantIdOf(actor), ticketId: toId(ticket.id), tenantUserId: actorId }
-      });
-      const isAssignee = toId(ticket.assigneeTenantUserId) === actorId || linked > 0;
-      if (!isReporter && !isAssignee && !(await isHandler(actor))) {
-        throw httpError(403, '只能查看自己发起或指派给自己的工单');
+    if (asHandler) {
+      if (!(await can(actor, TICKET_PERMISSION.process, TICKET_PERMISSION.viewAll)) && !(await isAssigneeOf(actor, ticket))) {
+        throw httpError(403, '没有查看这张工单的权限');
       }
+      return ticket;
+    }
+    const actorId = actorIdOf(actor);
+    const visible =
+      toId(ticket.reporterTenantUserId) === actorId ||
+      (await isAssigneeOf(actor, ticket)) ||
+      (await watcherIdsOf(actor, ticket.id)).includes(actorId) ||
+      (await can(actor, TICKET_PERMISSION.process, TICKET_PERMISSION.viewAll));
+    if (!visible) {
+      throw httpError(403, '只能查看自己发起、指派给自己或关注的工单');
     }
     return ticket;
   };
@@ -319,7 +352,7 @@ module.exports = fp(async fastify => {
   };
 
   const saveTemplate = async (actor, body) => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.templateEdit);
     const name = String(body.name || '').trim();
     if (!name) {
       throw httpError(400, '请填写模板名称');
@@ -354,7 +387,7 @@ module.exports = fp(async fastify => {
   };
 
   const removeTemplate = async (actor, { id }) => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.templateEdit);
     const locked = await models().ticketBaseTemplate.findOne({
       where: { id: toId(id), builtin: true }
     });
@@ -372,7 +405,7 @@ module.exports = fp(async fastify => {
   };
 
   const importBaseTemplate = async (actor, { id }) => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.templateEdit);
     const base = await models().ticketBaseTemplate.findOne({
       where: { id: toId(id), enabled: true }
     });
@@ -397,7 +430,7 @@ module.exports = fp(async fastify => {
   };
 
   const saveFormLibrary = async (actor, body) => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.templateEdit);
     const name = String(body.name || '').trim();
     if (!name) {
       throw httpError(400, '请填写模板名称');
@@ -437,7 +470,7 @@ module.exports = fp(async fastify => {
   };
 
   const saveCompleteTemplate = async (actor, body) => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.templateEdit);
     const name = String(body.name || '').trim();
     if (!name) {
       throw httpError(400, '请填写模板名称');
@@ -469,7 +502,7 @@ module.exports = fp(async fastify => {
   };
 
   const saveCompleteLibrary = async (actor, body) => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.templateEdit);
     const name = String(body.name || '').trim();
     if (!name) {
       throw httpError(400, '请填写模板名称');
@@ -491,8 +524,8 @@ module.exports = fp(async fastify => {
   };
 
   const completeTicket = async (actor, body) => {
-    await assertHandler(actor);
     const ticket = await loadTicket(actor, body.id, { asHandler: true });
+    await assertProcess(actor, ticket);
     if (ticket.status !== 'processing') {
       throw httpError(400, '只有处理中的工单可以完成');
     }
@@ -543,8 +576,8 @@ module.exports = fp(async fastify => {
   };
 
   const requestInfo = async (actor, body) => {
-    await assertHandler(actor);
     const ticket = await loadTicket(actor, body.id, { asHandler: true });
+    await assertProcess(actor, ticket);
     if (!['processing', 'onHold'].includes(ticket.status)) {
       throw httpError(400, '只有处理中或已挂起的工单可以要求补充信息');
     }
@@ -638,7 +671,7 @@ module.exports = fp(async fastify => {
   };
 
   const setTemplateEnabled = async (actor, { id, enabled }) => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.templateEdit);
     const record = await models().ticketTemplate.findOne({
       where: { id: toId(id), tenantId: tenantIdOf(actor) }
     });
@@ -651,7 +684,7 @@ module.exports = fp(async fastify => {
 
   const listTickets = async (actor, query, { asHandler }) => {
     if (asHandler) {
-      await assertHandler(actor);
+      await assertCan(actor, TICKET_PERMISSION.process, TICKET_PERMISSION.viewAll);
     }
     const currentPage = Number(query.currentPage) || 1;
     const perPage = Math.min(Number(query.perPage) || 20, 100);
@@ -834,16 +867,20 @@ module.exports = fp(async fastify => {
       }),
       completion: completion ? completion.toJSON() : null,
       supplement: supplement ? supplement.toJSON() : null,
-      canHandle: asHandler || (await isHandler(actor)),
+      canProcess: await canProcess(actor, ticket),
+      canAssign: await can(actor, TICKET_PERMISSION.assign),
+      canEditTemplate: await can(actor, TICKET_PERMISSION.templateEdit),
       watching: (await watcherIdsOf(actor, ticket.id)).includes(actorIdOf(actor))
     };
   };
 
   const changeStatus = async (actor, { id, status, note }, { asHandler }) => {
-    if (asHandler) {
-      await assertHandler(actor);
-    }
     const ticket = await loadTicket(actor, id, { asHandler });
+    if (asHandler) {
+      await assertProcess(actor, ticket);
+    } else if (toId(ticket.reporterTenantUserId) !== actorIdOf(actor)) {
+      throw httpError(403, '只有发起人可以确认、退回或重开工单');
+    }
     if (!allowedTransition(ticket.status, status, asHandler)) {
       throw httpError(400, '当前状态不能这样变更');
     }
@@ -883,8 +920,8 @@ module.exports = fp(async fastify => {
   };
 
   const accept = async (actor, { id }) => {
-    await assertHandler(actor);
     const ticket = await loadTicket(actor, id, { asHandler: true });
+    await assertProcess(actor, ticket);
     if (ticket.status !== 'pending') {
       throw httpError(400, '只有待受理工单可以受理');
     }
@@ -922,10 +959,8 @@ module.exports = fp(async fastify => {
   };
 
   const assign = async (actor, { id, assigneeIds, assigneeTenantUserId }, { asHandler = false } = {}) => {
-    if (asHandler) {
-      await assertHandler(actor);
-    }
-    const ticket = await loadTicket(actor, id, { asHandler });
+    await assertCan(actor, TICKET_PERMISSION.assign);
+    const ticket = await loadTicket(actor, id, { asHandler: false });
     if (['waiting', 'done'].includes(ticket.status)) {
       throw httpError(400, '待确认和已完成的工单不能修改处理人');
     }
@@ -970,9 +1005,6 @@ module.exports = fp(async fastify => {
   };
 
   const comment = async (actor, { id, content, internal, mentionIds }, { asHandler }) => {
-    if (asHandler) {
-      await assertHandler(actor);
-    }
     const ticket = await loadTicket(actor, id, { asHandler });
     const text = String(content || '').trim();
     if (!text) {
@@ -1053,16 +1085,7 @@ module.exports = fp(async fastify => {
   };
 
   const watch = async (actor, { id }) => {
-    let ticket;
-    try {
-      await assertHandler(actor);
-      ticket = await loadTicket(actor, id, { asHandler: true });
-    } catch (error) {
-      if (error.statusCode !== 403) {
-        throw error;
-      }
-      ticket = await loadTicket(actor, id, { asHandler: false });
-    }
+    const ticket = await loadTicket(actor, id, { asHandler: false });
     await addWatchers(actor, ticket, [actorIdOf(actor)]);
     return { watching: true };
   };
@@ -1156,16 +1179,41 @@ module.exports = fp(async fastify => {
       if (legacy && !hasBlocks(legacy.schema)) {
         await legacy.update({ schema: LEGACY_SUPPLEMENT.schema });
       }
+      await ensureTicketPermissions(tenantId);
+    }
+  };
+
+  // 租户可用权限码在开通时就固定了，老租户要补上工单权限码，否则角色里勾了也会被过滤掉
+  const ensureTicketPermissions = async tenantId => {
+    const ticketCodes = fastify.tenant.utils.flattenPermissions(ticketPermissions).map(item => item.code);
+    const setting = await fastify.tenant.services.setting.detail({ tenantId });
+    const current = jsonList(setting.permissions);
+    const missing = ticketCodes.filter(code => !current.includes(code));
+    if (missing.length) {
+      await fastify.tenant.services.setting.savePermissions({ tenantId, permissions: [...current, ...missing] });
+    }
+    for (const preset of PRESET_ROLES) {
+      const existing = await fastify.tenant.models.tenantRole.findOne({ where: { tenantId, code: preset.code } });
+      if (!existing) {
+        await fastify.tenant.models.tenantRole.create({
+          tenantId,
+          name: preset.name,
+          code: preset.code,
+          type: 'custom',
+          description: preset.description,
+          permissions: preset.permissions
+        });
+      }
     }
   };
 
   const getSla = async actor => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.slaView, TICKET_PERMISSION.slaEdit);
     return policyFor(tenantIdOf(actor));
   };
 
   const saveSla = async (actor, body) => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.slaEdit);
     let policy;
     try {
       policy = normalizePolicy(body || {});
@@ -1226,8 +1274,37 @@ module.exports = fp(async fastify => {
     }
   };
 
+  const sweepAutoClose = async () => {
+    const rows = await models().ticket.findAll({ where: { status: 'waiting' } });
+    const now = new Date();
+    for (const ticket of rows) {
+      const entered = await models().ticketEvent.findOne({
+        where: { ticketId: toId(ticket.id), type: 'status', toValue: 'waiting' },
+        order: [['createdAt', 'DESC']]
+      });
+      if (autoCloseAt(ticket, entered?.createdAt || ticket.updatedAt) > now) {
+        continue;
+      }
+      await ticket.update({ status: 'done' });
+      await moveClock(ticket, 'waiting', 'done');
+      await models().ticketEvent.create({
+        tenantId: ticket.tenantId,
+        ticketId: toId(ticket.id),
+        type: 'status',
+        fromValue: 'waiting',
+        toValue: 'done',
+        operatorTenantUserId: ''
+      });
+      await notifyTicket({ tenantId: ticket.tenantId, id: '' }, ticket, {
+        title: `工单 ${ticket.no} 确认超时，已自动结单`,
+        content: ticket.title,
+        includeReporter: true
+      });
+    }
+  };
+
   const listMembers = async actor => {
-    await assertHandler(actor);
+    await assertCan(actor, TICKET_PERMISSION.process, TICKET_PERMISSION.assign, TICKET_PERMISSION.viewAll, TICKET_PERMISSION.slaView, TICKET_PERMISSION.slaEdit);
     return fastify.tenant.models.tenantUser.findAll({
       where: { tenantId: tenantIdOf(actor), status: 'open' },
       attributes: ['id', 'name', 'email', 'userId']
@@ -1269,6 +1346,7 @@ module.exports = fp(async fastify => {
 
   const timer = setInterval(() => {
     sweepSla().catch(error => fastify.log.error({ err: error }, 'SLA 升级扫描失败'));
+    sweepAutoClose().catch(error => fastify.log.error({ err: error }, '待确认自动结单扫描失败'));
   }, 60 * 1000);
   if (typeof timer.unref === 'function') {
     timer.unref();

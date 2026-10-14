@@ -3,6 +3,7 @@ import { App } from 'antd';
 import { createWithRemoteLoader } from '@kne/remote-loader';
 import { Page } from '@kne/system-layout';
 import { PRIORITY_OPTIONS, unwrap } from './labels';
+import { TICKET_PERMISSION, hasAny } from './permissions';
 
 const WEEKDAYS = [
   { label: '周一', value: 1 },
@@ -35,9 +36,11 @@ const toForm = policy => ({
 });
 
 const SlaPage = createWithRemoteLoader({
-  modules: ['components-core:FormInfo', 'components-core:Global@usePreset']
+  modules: ['components-core:FormInfo', 'components-core:Global@usePreset', 'components-core:Permissions@usePermissions']
 })(({ remoteModules }) => {
-  const [FormInfo, usePreset] = remoteModules;
+  const [FormInfo, usePreset, usePermissions] = remoteModules;
+  const { permissions } = usePermissions();
+  const canEdit = hasAny(permissions, TICKET_PERMISSION.slaEdit);
   const { Form, SubmitButton, List, fields } = FormInfo;
   const { Input, TextArea, InputNumber, Select, CheckboxGroup } = fields;
   const { ajax } = usePreset();
@@ -143,7 +146,7 @@ const SlaPage = createWithRemoteLoader({
             <InputNumber key="afterHours" name="afterHours" label="超时后（小时）" min={0} step={0.5} />
           ]}
         />
-        <SubmitButton type="primary">保存</SubmitButton>
+        {canEdit ? <SubmitButton type="primary">保存</SubmitButton> : null}
       </Form>
     </Page>
   );

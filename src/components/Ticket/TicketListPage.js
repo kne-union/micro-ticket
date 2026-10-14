@@ -5,6 +5,7 @@ import { createWithRemoteLoader } from '@kne/remote-loader';
 import { Page } from '@kne/system-layout';
 import { PRIORITY_OPTIONS, STATUS_OPTIONS, labelOf } from './labels';
 import { renderTicketCards } from './ticketCards';
+import { TICKET_PERMISSION, hasAny } from './permissions';
 
 const STATUS_TAG = {
   pending: { type: 'warning', text: '待受理' },
@@ -18,9 +19,10 @@ const STATUS_TAG = {
 const SCOPE_LABEL = { assigned: '指派给我的', created: '我发起的', all: '全部' };
 
 const TicketListPage = createWithRemoteLoader({
-  modules: ['components-admin:BizUnit', 'components-core:Filter', 'components-core:Global@usePreset', 'components-core:FlexBox']
+  modules: ['components-admin:BizUnit', 'components-core:Filter', 'components-core:Global@usePreset', 'components-core:FlexBox', 'components-core:Permissions@usePermissions']
 })(({ remoteModules, layoutType = 'layout', mode = 'client', baseUrl }) => {
-  const [BizUnit, Filter, usePreset, FlexBox] = remoteModules;
+  const [BizUnit, Filter, usePreset, FlexBox, usePermissions] = remoteModules;
+  const { permissions } = usePermissions();
   const { TablePageRender } = BizUnit;
   const { SuperSelectFilterItem } = Filter.fields;
   const { ajax } = usePreset();
@@ -73,7 +75,12 @@ const TicketListPage = createWithRemoteLoader({
       renderType: 'main',
       onClick: ({ colItem }) => navigate(`${baseUrl}/ticket/${colItem.id}`)
     },
-    { name: 'title', title: '标题' },
+    {
+      name: 'title',
+      title: '标题',
+      renderType: 'main-large',
+      onClick: ({ colItem }) => navigate(`${baseUrl}/ticket/${colItem.id}`)
+    },
     { name: 'assigneeName', title: '处理人' },
     { name: 'templateName', title: '模板' },
     {
@@ -130,9 +137,9 @@ const TicketListPage = createWithRemoteLoader({
         label: '范围',
         single: true,
         options: [
-          { value: 'unassigned', label: '未指派' },
-          { value: 'mine', label: '我处理的' }
-        ]
+          hasAny(permissions, TICKET_PERMISSION.process, TICKET_PERMISSION.assign) ? { value: 'unassigned', label: '未指派' } : null,
+          hasAny(permissions, TICKET_PERMISSION.process) ? { value: 'mine', label: '我处理的' } : null
+        ].filter(Boolean)
       }
     });
   }

@@ -47,6 +47,9 @@ const eventText = item => {
   if (item.type === 'sla') {
     return `${item.fromName || '时限'}超时，升级通知 ${item.toName || '下一级'}`;
   }
+  if (!item.operatorTenantUserId && item.fromValue === 'waiting' && item.toValue === 'done') {
+    return '待确认超时未退回，系统自动结单';
+  }
   return `${who} 将状态从「${labelOf(STATUS_OPTIONS, item.fromValue)}」改为「${labelOf(STATUS_OPTIONS, item.toValue)}」`;
 };
 
@@ -118,23 +121,26 @@ const CompleteBody = ({ FormInfo, SchemaRendererInner, ajax, onCreateTemplate })
               { name: 'description', title: '说明' }
             ]}
             onChange={pickTemplate}
-            footer={({ close, reload }) => {
-              reloadRef.current = reload;
-              return (
-                <Button
-                  type="link"
-                  icon={<PlusOutlined />}
-                  onClick={() => {
-                    close?.();
-                    onCreateTemplate?.(() => {
-                      reloadRef.current?.();
-                    });
-                  }}
-                >
-                  新建模板
-                </Button>
-              );
-            }}
+            footer={
+              onCreateTemplate &&
+              (({ close, reload }) => {
+                reloadRef.current = reload;
+                return (
+                  <Button
+                    type="link"
+                    icon={<PlusOutlined />}
+                    onClick={() => {
+                      close?.();
+                      onCreateTemplate?.(() => {
+                        reloadRef.current?.();
+                      });
+                    }}
+                  >
+                    新建模板
+                  </Button>
+                );
+              })
+            }
           />
         ]}
       />
@@ -183,23 +189,26 @@ const SupplementRequestBody = ({ FormInfo, SchemaRendererInner, ajax, onCreateTe
               { name: 'description', title: '说明', width: 360 }
             ]}
             onChange={value => setTemplate((Array.isArray(value) ? value[0] : value) || null)}
-            footer={({ close, reload }) => {
-              reloadRef.current = reload;
-              return (
-                <Button
-                  type="link"
-                  icon={<PlusOutlined />}
-                  onClick={() => {
-                    close?.();
-                    onCreateTemplate?.(() => {
-                      reloadRef.current?.();
-                    });
-                  }}
-                >
-                  新建模板
-                </Button>
-              );
-            }}
+            footer={
+              onCreateTemplate &&
+              (({ close, reload }) => {
+                reloadRef.current = reload;
+                return (
+                  <Button
+                    type="link"
+                    icon={<PlusOutlined />}
+                    onClick={() => {
+                      close?.();
+                      onCreateTemplate?.(() => {
+                        reloadRef.current?.();
+                      });
+                    }}
+                  >
+                    新建模板
+                  </Button>
+                );
+              })
+            }
           />
         ]}
       />
@@ -333,7 +342,7 @@ const TicketDetailPage = createWithRemoteLoader({
   const assigneeIds = (ticket.assigneeIds || []).map(id => String(id));
   const isAssignee = !!meId && assigneeIds.includes(meId);
   const isReporter = !!meId && String(ticket.reporterTenantUserId || '') === meId;
-  const acting = mode === 'manage' || (!!detail.canHandle && (isAssignee || assigneeIds.length === 0));
+  const acting = !!detail.canProcess && (mode === 'manage' || isAssignee || assigneeIds.length === 0);
 
   const openTemplateCreator = usage => reload => {
     const schemaRef = { current: null };
@@ -401,7 +410,7 @@ const TicketDetailPage = createWithRemoteLoader({
           }
         }
       },
-      children: <CompleteBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} onCreateTemplate={openTemplateCreator('complete')} />
+      children: <CompleteBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} onCreateTemplate={detail.canEditTemplate ? openTemplateCreator('complete') : undefined} />
     });
   };
 
@@ -446,7 +455,7 @@ const TicketDetailPage = createWithRemoteLoader({
           }
         }
       },
-      children: <SupplementRequestBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} onCreateTemplate={openTemplateCreator('supplement')} />
+      children: <SupplementRequestBody FormInfo={FormInfo} SchemaRendererInner={SchemaRendererInner} ajax={ajax} onCreateTemplate={detail.canEditTemplate ? openTemplateCreator('supplement') : undefined} />
     });
   };
 
@@ -539,7 +548,7 @@ const TicketDetailPage = createWithRemoteLoader({
                 <span>{formatTime(ticket.resolveDueAt) || '—'}</span>
               </div>
             </div>
-            {['waiting', 'done'].includes(ticket.status) ? (
+            {['waiting', 'done'].includes(ticket.status) || !detail.canAssign ? (
               <div className={style['summary-item']}>
                 <span className={style['summary-label']}>处理人</span>
                 <span>{ticket.assigneeName || '—'}</span>
@@ -614,7 +623,9 @@ const TicketDetailPage = createWithRemoteLoader({
               ) : (
                 <FormInfo column={1} list={[<FormInfo.fields.TextArea key="note" name="note" label="补充说明" rule="REQ" block />]} />
               )}
-              <SubmitButton type="primary">提交补充</SubmitButton>
+              <div className={style['comment-actions']}>
+                <SubmitButton type="primary">提交补充</SubmitButton>
+              </div>
             </Form>
           </div>
         ) : null}

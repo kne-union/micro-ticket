@@ -37,6 +37,14 @@ const isOverdue = (ticket, now = new Date()) => {
   return !Number.isNaN(at.getTime()) && at.getTime() < now.getTime();
 };
 
+const CONFIRM_GRACE_MS = 24 * 60 * 60 * 1000;
+
+const autoCloseAt = (ticket, waitingSince) => {
+  const grace = new Date(new Date(waitingSince).getTime() + CONFIRM_GRACE_MS);
+  const due = ticket?.resolveDueAt ? new Date(ticket.resolveDueAt) : null;
+  return due && !Number.isNaN(due.getTime()) && due > grace ? due : grace;
+};
+
 const notifyTargetIds = ({ reporterId, assigneeIds = [], watcherIds = [], extraIds = [], actorId, includeReporter = true }) => {
   const ids = new Set([...(includeReporter && reporterId ? [String(reporterId)] : []), ...assigneeIds, ...watcherIds, ...extraIds].map(id => (id == null ? '' : String(id))).filter(Boolean));
   if (!includeReporter && reporterId) {
@@ -57,5 +65,6 @@ module.exports = {
   allowedTransition,
   reopenNeedsReason,
   isOverdue,
+  autoCloseAt,
   notifyTargetIds
 };
