@@ -1,7 +1,7 @@
 const fp = require('fastify-plugin');
 const { PRIORITIES, statusLabel, allowedTransition, reopenNeedsReason, isOverdue, notifyTargetIds } = require('../ticket/rules');
 const { DEFAULT_POLICY, dueDates, statusClockPatch, dueEscalation, slaTag, normalizePolicy } = require('../ticket/sla');
-const { COMPLETE_DEFAULTS, hasBlocks, LEGACY_SUPPLEMENT } = require('../ticket/complete-defaults');
+const { COMPLETE_DEFAULTS, SUPPLEMENT_DEFAULTS, hasBlocks, LEGACY_SUPPLEMENT } = require('../ticket/complete-defaults');
 
 const httpError = (statusCode, message) => {
   const error = new Error(message);
@@ -1134,17 +1134,22 @@ module.exports = fp(async fastify => {
     const template = models().ticketCompleteTemplate;
     for (const tenant of tenants) {
       const tenantId = toId(tenant.id);
-      for (const item of COMPLETE_DEFAULTS) {
-        const existing = await template.findOne({ where: { tenantId, name: item.name, usage: 'complete' } });
-        if (!existing) {
-          await template.create({
-            tenantId,
-            name: item.name,
-            description: item.description,
-            enabled: true,
-            usage: 'complete',
-            schema: item.schema
-          });
+      for (const [usage, defaults] of [
+        ['complete', COMPLETE_DEFAULTS],
+        ['supplement', SUPPLEMENT_DEFAULTS]
+      ]) {
+        for (const item of defaults) {
+          const existing = await template.findOne({ where: { tenantId, name: item.name, usage } });
+          if (!existing) {
+            await template.create({
+              tenantId,
+              name: item.name,
+              description: item.description,
+              enabled: true,
+              usage,
+              schema: item.schema
+            });
+          }
         }
       }
       const legacy = await template.findOne({ where: { tenantId, name: LEGACY_SUPPLEMENT.name, usage: 'complete' } });
