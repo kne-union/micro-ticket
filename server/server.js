@@ -67,9 +67,14 @@ const createServer = () => {
         getTenantModels: options.getTenantModels
       });
 
+      const claimLegacyUser = require('./libs/oidc-claim')(fastify);
       fastify.register(require('@kne/fastify-account'), {
         isTest: fastify.config.IS_TEST,
         prefix: `${options.prefix}`,
+        getUserAuthenticate: () => async request => {
+          await fastify.oidc.authenticate.user(request);
+          await claimLegacyUser(request);
+        },
         sendMessage: async ({ name, type, messageType, props }) => {
           if (messageType === 1 && type === 0) {
             await fastify.message.services.sendMessage({
@@ -122,7 +127,15 @@ const createServer = () => {
       fastify.register(require('@kne/fastify-tenant'), {
         prefix: `${options.prefix}/tenant`,
         getUserModel: options.getUserModel,
-        permissionsProfile: path.resolve(__dirname, './libs/permissions.js')
+        permissionsProfile: path.resolve(__dirname, './libs/permissions.js'),
+        onPermissionChange: payload => fastify.oidc.onPermissionChange(payload)
+      });
+
+      // @fastify/env 7 不再把 .env 写入 process.env，fastify-oidc 的环境变量默认值读不到，需显式传入
+      fastify.register(require('@kne/fastify-oidc'), {
+        selfClient: { clientName: 'micro-ticket' },
+        origin: fastify.config.ORIGIN,
+        keyEncryptionSecret: fastify.config.OIDC_KEY_SECRET
       });
     })
   );
@@ -193,8 +206,20 @@ const createServer = () => {
         prefix: `${options.prefix}/im`,
         getAuthenticate: () => [fastify.tenant.authenticate.user, fastify.tenant.authenticate.tenantUser, bindImUser],
         verifyToken: async token => {
-          const info = await fastify.jwt.verify(token);
-          const user = await fastify.account.services.user.getUser(info.payload);
+          const resolveUserPayload = async () => {
+            try {
+              const payload = await fastify.oidc.verifier.verifyAccessToken(token);
+              return (await fastify.oidc.revocation.isRevoked(payload)) ? null : { id: payload.sub };
+            } catch (e) {
+              const info = await fastify.jwt.verify(token);
+              return info.payload;
+            }
+          };
+          const userPayload = await resolveUserPayload();
+          if (!userPayload) {
+            return null;
+          }
+          const user = await fastify.account.services.user.getUser(userPayload);
           if (!user || !(user.status === 0 || user.status === 1)) {
             return null;
           }

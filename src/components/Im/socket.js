@@ -1,9 +1,15 @@
-import { getToken } from '@kne/token-storage';
+import { getOidcClient } from '../../commons/oidcClient';
 
 export const apiUrl = path => `${String(window.runtimeApiUrl || '').replace(/\/+$/, '')}${path}`;
 
+export const authFetch = async (url, init = {}) => {
+  const headers = await getOidcClient().getAuthHeaders({ method: init.method || 'GET', url });
+  return fetch(url, Object.assign({}, init, { headers: Object.assign({}, init.headers, headers) }));
+};
+
 export const openImSocket = onEvent => {
-  const token = getToken('X-User-Token');
+  // WebSocket 只在握手时校验令牌；OidcAuthenticate 保证渲染时已有可用令牌
+  const token = getOidcClient()?.getTokenSet()?.accessToken;
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = process.env.NODE_ENV === 'development' ? 'localhost:8049' : window.location.host;
   const base = window.runtimeApiUrl ? new URL(String(window.runtimeApiUrl), window.location.href).href.replace(/^http/, 'ws').replace(/\/$/, '') : `${protocol}//${host}`;
