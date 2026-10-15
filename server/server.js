@@ -47,6 +47,14 @@ const createServer = () => {
     }
   });
 
+  // 须在其它插件之前注册，否则收集不到先定义的路由；文档由 @kne/fastify-app-runtime 的 /open-api.json 输出
+  const appPackageJson = require('../package.json');
+  fastify.register(require('@fastify/swagger'), {
+    openapi: {
+      info: { title: appPackageJson.name, version: appPackageJson.version }
+    }
+  });
+
   fastify.register(require('fastify-cron'));
 
   fastify.register(
