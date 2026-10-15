@@ -4,65 +4,27 @@ import { Spin, Empty, message } from 'antd';
 import { preset as remoteLoaderPreset, loadModule } from '@kne/remote-loader';
 import { themeToken as themeTokenPreset } from '@kne/system-layout';
 import createAjax from '@kne/axios-fetch';
-import { getToken } from '@kne/token-storage';
 import transform from 'lodash/transform';
 import merge from 'lodash/merge';
 import { getApis } from '@components/Apis';
-import { withPublicUrl } from './commons/publicUrl';
+import { setOidcClient } from './commons/oidcClient';
 
 window.PUBLIC_URL = window.runtimePublicUrl || process.env.PUBLIC_URL;
 
 const baseApiUrl = window.runtimeApiUrl || '';
 
+const loadOidcConfig = async () => {
+  try {
+    const response = await fetch(`${baseApiUrl.replace(/\/+$/, '')}/api/oidc/config`);
+    const body = await response.json();
+    return body && Object.prototype.hasOwnProperty.call(body, 'code') && Object.prototype.hasOwnProperty.call(body, 'data') ? body.data : body;
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+};
+
 export const globalInit = async () => {
-  const ajax = createAjax({
-    baseURL: baseApiUrl,
-    errorHandler: error => message.error(error),
-    getDefaultHeaders: () => {
-      return {
-        'X-User-Token': getToken('X-User-Token')
-      };
-    },
-    registerInterceptors: interceptors => {
-      interceptors.response.use(response => {
-        if (response.status === 401 || response.data.code === 401) {
-          const searchParams = new URLSearchParams(window.location.search);
-          const referer = encodeURIComponent(window.location.pathname + window.location.search);
-          searchParams.append('referer', referer);
-          window.location.href = `${withPublicUrl('/account/login')}?${searchParams.toString()}`;
-          response.showError = false;
-        }
-        return response;
-      });
-    }
-  });
-
-  fetchPreset({
-    ajax,
-    loading: (
-      <Spin
-        delay={500}
-        style={{
-          position: 'absolute',
-          left: '50%',
-          padding: '10px',
-          transform: 'translateX(-50%)'
-        }}
-      />
-    ),
-    error: null,
-    empty: <Empty />,
-    transformResponse: response => {
-      const { data } = response;
-      response.data = {
-        code: data.code === 0 ? 200 : data.code,
-        msg: data.msg,
-        results: data.data
-      };
-      return response;
-    }
-  });
-
   const registry = {
     url: 'https://cdn.leapin-ai.com',
     tpl: '{{url}}/components/@kne-components/{{remote}}/{{version}}/build'
@@ -113,6 +75,48 @@ export const globalInit = async () => {
     }
   });
 
+  const { default: createOidcClient } = await loadModule('components-admin:Oidc@createOidcClient');
+  // 部署在应用中心时以 central 模式运行，issuer / clientId / audience 由宿主注入到服务端环境变量，只能从服务端配置接口读取
+  const oidcConfig = await loadOidcConfig();
+  const oidcClient = createOidcClient({
+    issuer: oidcConfig?.issuer || window.runtimeOidcIssuer || `${window.location.origin}/oidc`,
+    clientId: oidcConfig?.clientId || window.runtimeOidcClientId || 'oidc-spa',
+    resource: oidcConfig?.audience || window.runtimeOidcResource || `${window.location.origin}/api`
+  });
+  setOidcClient(oidcClient);
+
+  const ajax = createAjax({
+    baseURL: baseApiUrl,
+    errorHandler: error => message.error(error),
+    registerInterceptors: interceptors => oidcClient.registerInterceptors(interceptors)
+  });
+
+  fetchPreset({
+    ajax,
+    loading: (
+      <Spin
+        delay={500}
+        style={{
+          position: 'absolute',
+          left: '50%',
+          padding: '10px',
+          transform: 'translateX(-50%)'
+        }}
+      />
+    ),
+    error: null,
+    empty: <Empty />,
+    transformResponse: response => {
+      const { data } = response;
+      response.data = {
+        code: data.code === 0 ? 200 : data.code,
+        msg: data.msg,
+        results: data.data
+      };
+      return response;
+    }
+  });
+
   const safeLoadApis = async name => {
     try {
       return await loadModule(name).then(({ default: defaultModule }) => defaultModule);
@@ -142,6 +146,8 @@ export const globalInit = async () => {
 
   return {
     ajax,
+    oidc: oidcClient,
+    oidcMode: oidcConfig?.mode,
     staticUrl: baseApiUrl,
     enums: Object.assign({}, await safeLoadApis('components-admin:Task@enums'), await safeLoadApis('components-admin:MessageManger@enums'), {
       taskType: () => []

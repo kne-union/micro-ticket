@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { message } from 'antd';
 import { useNavigate } from 'react-router-dom';
-import { getToken } from '@kne/token-storage';
-import { apiUrl, openImSocket } from './socket';
+import { apiUrl, authFetch, openImSocket } from './socket';
 
 const unreadTotal = body => {
   const payload = body?.data?.data ?? body?.data ?? body ?? {};
@@ -20,10 +19,7 @@ const ImSocket = ({ baseUrl = '', onUnread }) => {
     let closed = false;
     const publishUnread = async () => {
       try {
-        const token = getToken('X-User-Token');
-        const response = await fetch(apiUrl('/api/v1/im/unread-count'), {
-          headers: token ? { 'x-user-token': token } : {}
-        });
+        const response = await authFetch(apiUrl('/api/v1/im/unread-count'));
         const body = await response.json();
         if (!closed) {
           onUnreadRef.current?.(unreadTotal(body));
@@ -50,10 +46,8 @@ const ImSocket = ({ baseUrl = '', onUnread }) => {
         content: item.title ? `${item.title}：${item.content || ''}` : item.content || '收到工单通知',
         onClick: () => {
           if (item.id) {
-            const token = getToken('X-User-Token');
-            fetch(apiUrl(`/api/v1/im/system-messages/${item.id}/read`), {
-              method: 'POST',
-              headers: token ? { 'x-user-token': token } : {}
+            authFetch(apiUrl(`/api/v1/im/system-messages/${item.id}/read`), {
+              method: 'POST'
             })
               .catch(() => null)
               .finally(() => publishUnread());
