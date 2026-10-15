@@ -8,6 +8,7 @@ import { useIsMobile } from '@kne/responsive-utils';
 import { PRIORITY_OPTIONS, unwrap } from './labels';
 import { buildMemberSelectApis } from './memberSelectApis';
 import { TemplateCreateBody, parentIdOf } from './TemplatePage';
+import { TICKET_PERMISSION, hasAny } from './permissions';
 import style from './style.module.scss';
 
 const FormApiBridge = ({ useFormContext, formApiRef }) => {
@@ -43,10 +44,13 @@ const TicketCreatePage = createWithRemoteLoader({
     'components-core:ButtonGroup@ButtonFooter',
     'components-core:Layout@Page',
     'components-thirdparty:FormCreator@SchemaRendererInner',
-    'components-core:FormInfo@useFormModal'
+    'components-core:FormInfo@useFormModal',
+    'components-core:Permissions@usePermissions'
   ]
 })(({ remoteModules, layoutType = 'system-layout', baseUrl }) => {
-  const [usePreset, useGlobalContext, FormInfo, TenantUserSelect, ButtonFooter, CorePage, SchemaRendererInner, useFormModal] = remoteModules;
+  const [usePreset, useGlobalContext, FormInfo, TenantUserSelect, ButtonFooter, CorePage, SchemaRendererInner, useFormModal, usePermissions] = remoteModules;
+  const { permissions } = usePermissions();
+  const canEditTemplate = hasAny(permissions, TICKET_PERMISSION.templateEdit);
   const { Form, SubmitButton, CancelButton, fields } = FormInfo;
   const { Input, Select, DatePicker, Upload, SuperSelectTableList } = fields;
   const { ajax, apis } = usePreset();
@@ -204,7 +208,7 @@ const TicketCreatePage = createWithRemoteLoader({
                       renderType: 'options',
                       width: 140,
                       getValueOf: item =>
-                        item.builtin
+                        item.builtin || !canEditTemplate
                           ? []
                           : [
                               {
@@ -229,6 +233,9 @@ const TicketCreatePage = createWithRemoteLoader({
                   onChange={value => setCurrent((Array.isArray(value) ? value[0] : value) || null)}
                   footer={({ close, reload }) => {
                     pickerRef.current = { close, reload };
+                    if (!canEditTemplate) {
+                      return null;
+                    }
                     return (
                       <Button
                         type="link"

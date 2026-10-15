@@ -73,6 +73,48 @@ const COMPLETE_DEFAULTS = [
     name: '权限处理结果',
     description: '账号开通、停用或改权限后的结果',
     schema: schemaOf('权限处理结果', [field('account', '处理账号', 'Input'), field('result', '处理结果')])
+  },
+  {
+    name: '需求已上线',
+    description: '说明上线内容、时间和使用方式',
+    schema: schemaOf('需求已上线', [
+      field('content', '上线内容'),
+      field('releasedAt', '上线时间', 'Input'),
+      field('usage', '使用说明', 'TextArea', '')
+    ])
+  },
+  {
+    name: '申请已办结',
+    description: '设备、软件、采购等申请办理完成',
+    schema: schemaOf('申请已办结', [field('content', '办理内容'), field('delivery', '交付说明（领取地点、账号等）', 'TextArea', '')])
+  },
+  {
+    name: '报销已处理',
+    description: '报销审核通过、打款或退回',
+    schema: schemaOf('报销已处理', [
+      field('result', '处理结果'),
+      field('paidAt', '打款日期', 'Input', ''),
+      field('note', '备注', 'TextArea', '')
+    ])
+  },
+  {
+    name: '数据处理完成',
+    description: '数据导出、修正或删除已完成',
+    schema: schemaOf('数据处理完成', [
+      field('scope', '处理范围'),
+      field('result', '处理结果'),
+      field('location', '结果文件或位置', 'Input', '')
+    ])
+  },
+  {
+    name: '不予处理',
+    description: '不符合规定或不在处理范围内',
+    schema: schemaOf('不予处理', [field('reason', '原因说明'), field('suggestion', '建议的其他途径', 'TextArea', '')])
+  },
+  {
+    name: '临时规避方案',
+    description: '先给出临时方案，后续再彻底解决',
+    schema: schemaOf('临时规避方案', [field('workaround', '临时方案'), field('plan', '彻底解决计划', 'TextArea', '')])
   }
 ];
 
@@ -109,6 +151,48 @@ const SUPPLEMENT_DEFAULTS = [
       field('scenario', '使用场景'),
       field('expect', '期望效果'),
       field('deadline', '期望完成时间', 'Input', '')
+    ])
+  },
+  {
+    name: '截图与链接补充',
+    description: '请提单人补充截图、录屏或相关链接',
+    schema: schemaOf('截图与链接补充', [field('links', '截图或文件链接'), field('note', '补充说明', 'TextArea', '')])
+  },
+  {
+    name: '设备与环境信息',
+    description: '排查设备、网络类问题前确认使用环境',
+    schema: schemaOf('设备与环境信息', [
+      field('device', '设备型号', 'Input'),
+      field('os', '操作系统与版本', 'Input'),
+      field('network', '网络环境（办公网、居家、VPN）', 'Input', '')
+    ])
+  },
+  {
+    name: '联系方式与可约时间',
+    description: '需要上门或电话沟通时确认联系方式',
+    schema: schemaOf('联系方式与可约时间', [field('contact', '联系电话', 'Input'), field('availableAt', '方便联系的时间', 'Input')])
+  },
+  {
+    name: '审批信息补充',
+    description: '办理前需要确认审批人或审批单',
+    schema: schemaOf('审批信息补充', [
+      field('approver', '审批人', 'Input'),
+      field('approvalNo', '审批单号', 'Input', ''),
+      field('note', '补充说明', 'TextArea', '')
+    ])
+  },
+  {
+    name: '数据范围确认',
+    description: '导出或修正数据前确认范围和用途',
+    schema: schemaOf('数据范围确认', [field('scope', '数据范围（时间、对象、字段）'), field('purpose', '用途')])
+  },
+  {
+    name: '采购明细补充',
+    description: '采购申请信息不全时补充明细和预算',
+    schema: schemaOf('采购明细补充', [
+      field('items', '物品明细（名称、规格、数量）'),
+      field('budget', '预算金额', 'Input'),
+      field('supplier', '指定供应商', 'Input', '')
     ])
   }
 ];

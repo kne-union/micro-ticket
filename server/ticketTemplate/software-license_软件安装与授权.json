@@ -1,0 +1,109 @@
+{
+  "description": "软件安装、激活授权、升级",
+  "schema": {
+    "title": "软件安装与授权",
+    "subtitle": "",
+    "column": 1,
+    "gap": 24,
+    "blocks": [
+      {
+        "id": "block_软件安装与授权",
+        "kind": "formInfo",
+        "title": "软件安装与授权",
+        "subtitle": "",
+        "column": 1,
+        "gap": 24,
+        "bordered": true,
+        "important": false,
+        "showIndex": true,
+        "name": "",
+        "label": "",
+        "addText": "",
+        "fieldType": "Input",
+        "autoStep": true,
+        "mode": "single",
+        "selectorName": "",
+        "selectorInData": true,
+        "list": [
+          {
+            "id": "field_software",
+            "type": "Input",
+            "name": "software",
+            "label": "软件名称与版本",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_action",
+            "type": "RadioGroup",
+            "name": "action",
+            "label": "申请类型",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {
+              "options": [
+                {
+                  "label": "安装",
+                  "value": "安装"
+                },
+                {
+                  "label": "授权激活",
+                  "value": "授权激活"
+                },
+                {
+                  "label": "升级",
+                  "value": "升级"
+                },
+                {
+                  "label": "卸载",
+                  "value": "卸载"
+                }
+              ]
+            }
+          },
+          {
+            "id": "field_device",
+            "type": "Input",
+            "name": "device",
+            "label": "设备编号或电脑名",
+            "tips": "",
+            "description": "",
+            "rule": "",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_purpose",
+            "type": "TextArea",
+            "name": "purpose",
+            "label": "用途说明",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          }
+        ]
+      }
+    ],
+    "actions": {
+      "showSubmit": false,
+      "showReset": false,
+      "showCancel": false,
+      "submitText": "",
+      "resetText": "",
+      "cancelText": "",
+      "align": "center",
+      "gap": 16
+    }
+  }
+}

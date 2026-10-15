@@ -1,0 +1,102 @@
+{
+  "description": "物品、服务采购申请",
+  "schema": {
+    "title": "采购申请",
+    "subtitle": "",
+    "column": 1,
+    "gap": 24,
+    "blocks": [
+      {
+        "id": "block_采购申请",
+        "kind": "formInfo",
+        "title": "采购申请",
+        "subtitle": "",
+        "column": 1,
+        "gap": 24,
+        "bordered": true,
+        "important": false,
+        "showIndex": true,
+        "name": "",
+        "label": "",
+        "addText": "",
+        "fieldType": "Input",
+        "autoStep": true,
+        "mode": "single",
+        "selectorName": "",
+        "selectorInData": true,
+        "list": [
+          {
+            "id": "field_item",
+            "type": "Input",
+            "name": "item",
+            "label": "物品或服务名称",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_quantity",
+            "type": "Input",
+            "name": "quantity",
+            "label": "数量",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_budget",
+            "type": "Input",
+            "name": "budget",
+            "label": "预算金额",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_reason",
+            "type": "TextArea",
+            "name": "reason",
+            "label": "采购原因",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_expectAt",
+            "type": "Input",
+            "name": "expectAt",
+            "label": "期望到货时间",
+            "tips": "",
+            "description": "",
+            "rule": "",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          }
+        ]
+      }
+    ],
+    "actions": {
+      "showSubmit": false,
+      "showReset": false,
+      "showCancel": false,
+      "submitText": "",
+      "resetText": "",
+      "cancelText": "",
+      "align": "center",
+      "gap": 16
+    }
+  }
+}

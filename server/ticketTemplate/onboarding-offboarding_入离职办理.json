@@ -1,0 +1,117 @@
+{
+  "description": "入职开通、离职回收、转岗调整",
+  "schema": {
+    "title": "入离职办理",
+    "subtitle": "",
+    "column": 1,
+    "gap": 24,
+    "blocks": [
+      {
+        "id": "block_入离职办理",
+        "kind": "formInfo",
+        "title": "入离职办理",
+        "subtitle": "",
+        "column": 1,
+        "gap": 24,
+        "bordered": true,
+        "important": false,
+        "showIndex": true,
+        "name": "",
+        "label": "",
+        "addText": "",
+        "fieldType": "Input",
+        "autoStep": true,
+        "mode": "single",
+        "selectorName": "",
+        "selectorInData": true,
+        "list": [
+          {
+            "id": "field_kind",
+            "type": "RadioGroup",
+            "name": "kind",
+            "label": "类型",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {
+              "options": [
+                {
+                  "label": "入职",
+                  "value": "入职"
+                },
+                {
+                  "label": "离职",
+                  "value": "离职"
+                },
+                {
+                  "label": "转岗",
+                  "value": "转岗"
+                }
+              ]
+            }
+          },
+          {
+            "id": "field_employee",
+            "type": "Input",
+            "name": "employee",
+            "label": "员工姓名",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_position",
+            "type": "Input",
+            "name": "position",
+            "label": "部门与岗位",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_effectiveAt",
+            "type": "Input",
+            "name": "effectiveAt",
+            "label": "生效日期",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_resources",
+            "type": "TextArea",
+            "name": "resources",
+            "label": "需开通或回收的账号与设备",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          }
+        ]
+      }
+    ],
+    "actions": {
+      "showSubmit": false,
+      "showReset": false,
+      "showCancel": false,
+      "submitText": "",
+      "resetText": "",
+      "cancelText": "",
+      "align": "center",
+      "gap": 16
+    }
+  }
+}
