@@ -186,13 +186,16 @@ const TicketListPage = createWithRemoteLoader({
         list: filterList,
         ...(mode === 'client'
           ? {
-              defaultValue: [
-                {
-                  name: 'scope',
-                  label: '范围',
-                  value: { value: scope, label: SCOPE_LABEL[scope] }
-                }
-              ]
+              defaultValue:
+                scope === 'all'
+                  ? []
+                  : [
+                      {
+                        name: 'scope',
+                        label: '范围',
+                        value: { value: scope, label: SCOPE_LABEL[scope] }
+                      }
+                    ]
             }
           : {})
       }}
@@ -231,10 +234,10 @@ const TicketListPage = createWithRemoteLoader({
                       tab: {
                         name: 'scope',
                         label: '范围',
+                        // TablePage 的 tab 自带不写筛选值的「全部」，由 mapFilterValue 补成 scope=all
                         list: [
                           { label: SCOPE_LABEL.assigned, value: 'assigned' },
-                          { label: SCOPE_LABEL.created, value: 'created' },
-                          { label: SCOPE_LABEL.all, value: 'all' }
+                          { label: SCOPE_LABEL.created, value: 'created' }
                         ]
                       },
                       tabProps: {
