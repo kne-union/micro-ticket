@@ -1,0 +1,125 @@
+{
+  "description": "笔记本、显示器、外设等办公设备申领",
+  "schema": {
+    "title": "设备申领",
+    "subtitle": "",
+    "column": 1,
+    "gap": 24,
+    "blocks": [
+      {
+        "id": "block_设备申领",
+        "kind": "formInfo",
+        "title": "设备申领",
+        "subtitle": "",
+        "column": 1,
+        "gap": 24,
+        "bordered": true,
+        "important": false,
+        "showIndex": true,
+        "name": "",
+        "label": "",
+        "addText": "",
+        "fieldType": "Input",
+        "autoStep": true,
+        "mode": "single",
+        "selectorName": "",
+        "selectorInData": true,
+        "list": [
+          {
+            "id": "field_deviceType",
+            "type": "RadioGroup",
+            "name": "deviceType",
+            "label": "设备类型",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {
+              "options": [
+                {
+                  "label": "笔记本",
+                  "value": "笔记本"
+                },
+                {
+                  "label": "显示器",
+                  "value": "显示器"
+                },
+                {
+                  "label": "键鼠外设",
+                  "value": "键鼠外设"
+                },
+                {
+                  "label": "手机或测试机",
+                  "value": "手机或测试机"
+                },
+                {
+                  "label": "其他",
+                  "value": "其他"
+                }
+              ]
+            }
+          },
+          {
+            "id": "field_spec",
+            "type": "Input",
+            "name": "spec",
+            "label": "型号或配置要求",
+            "tips": "",
+            "description": "",
+            "rule": "",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_user",
+            "type": "Input",
+            "name": "user",
+            "label": "使用人",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_reason",
+            "type": "TextArea",
+            "name": "reason",
+            "label": "申领原因",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_expectAt",
+            "type": "Input",
+            "name": "expectAt",
+            "label": "期望到位时间",
+            "tips": "",
+            "description": "例如 2026-10-20",
+            "rule": "",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          }
+        ]
+      }
+    ],
+    "actions": {
+      "showSubmit": false,
+      "showReset": false,
+      "showCancel": false,
+      "submitText": "",
+      "resetText": "",
+      "cancelText": "",
+      "align": "center",
+      "gap": 16
+    }
+  }
+}

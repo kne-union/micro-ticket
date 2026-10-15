@@ -458,6 +458,7 @@ module.exports = fp(async fastify => {
   };
 
   const listCompleteTemplates = async (actor, { enabledOnly, usage } = {}) => {
+    await ensureTenantCompleteDefaults(tenantIdOf(actor));
     const where = { tenantId: tenantIdOf(actor) };
     if (enabledOnly) {
       where.enabled = true;
@@ -1155,32 +1156,49 @@ module.exports = fp(async fastify => {
     }
     const tenantTable = tableNameOf(tenantModel);
     const [tenants] = await fastify.sequelize.instance.query(`SELECT id FROM "${tenantTable}"`);
-    const template = models().ticketCompleteTemplate;
     for (const tenant of tenants) {
       const tenantId = toId(tenant.id);
-      for (const [usage, defaults] of [
-        ['complete', COMPLETE_DEFAULTS],
-        ['supplement', SUPPLEMENT_DEFAULTS]
-      ]) {
-        for (const item of defaults) {
-          const existing = await template.findOne({ where: { tenantId, name: item.name, usage } });
-          if (!existing) {
-            await template.create({
-              tenantId,
-              name: item.name,
-              description: item.description,
-              enabled: true,
-              usage,
-              schema: item.schema
-            });
-          }
+      await ensureTenantCompleteDefaults(tenantId);
+      await ensureTicketPermissions(tenantId);
+    }
+  };
+
+  // 启动时只补已有租户，运行期间新开的租户在首次查模板时补默认模板
+  const seededTenants = new Map();
+  const ensureTenantCompleteDefaults = tenantId => {
+    if (!seededTenants.has(tenantId)) {
+      const seeding = seedCompleteDefaults(tenantId).catch(error => {
+        seededTenants.delete(tenantId);
+        throw error;
+      });
+      seededTenants.set(tenantId, seeding);
+    }
+    return seededTenants.get(tenantId);
+  };
+
+  const seedCompleteDefaults = async tenantId => {
+    const template = models().ticketCompleteTemplate;
+    for (const [usage, defaults] of [
+      ['complete', COMPLETE_DEFAULTS],
+      ['supplement', SUPPLEMENT_DEFAULTS]
+    ]) {
+      for (const item of defaults) {
+        const existing = await template.findOne({ where: { tenantId, name: item.name, usage } });
+        if (!existing) {
+          await template.create({
+            tenantId,
+            name: item.name,
+            description: item.description,
+            enabled: true,
+            usage,
+            schema: item.schema
+          });
         }
       }
-      const legacy = await template.findOne({ where: { tenantId, name: LEGACY_SUPPLEMENT.name, usage: 'complete' } });
-      if (legacy && !hasBlocks(legacy.schema)) {
-        await legacy.update({ schema: LEGACY_SUPPLEMENT.schema });
-      }
-      await ensureTicketPermissions(tenantId);
+    }
+    const legacy = await template.findOne({ where: { tenantId, name: LEGACY_SUPPLEMENT.name, usage: 'complete' } });
+    if (legacy && !hasBlocks(legacy.schema)) {
+      await legacy.update({ schema: LEGACY_SUPPLEMENT.schema });
     }
   };
 

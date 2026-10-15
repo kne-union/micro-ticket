@@ -1,0 +1,109 @@
+{
+  "description": "连不上网、VPN 异常、网速慢",
+  "schema": {
+    "title": "网络与VPN",
+    "subtitle": "",
+    "column": 1,
+    "gap": 24,
+    "blocks": [
+      {
+        "id": "block_网络与VPN",
+        "kind": "formInfo",
+        "title": "网络与VPN",
+        "subtitle": "",
+        "column": 1,
+        "gap": 24,
+        "bordered": true,
+        "important": false,
+        "showIndex": true,
+        "name": "",
+        "label": "",
+        "addText": "",
+        "fieldType": "Input",
+        "autoStep": true,
+        "mode": "single",
+        "selectorName": "",
+        "selectorInData": true,
+        "list": [
+          {
+            "id": "field_kind",
+            "type": "RadioGroup",
+            "name": "kind",
+            "label": "问题类型",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {
+              "options": [
+                {
+                  "label": "无法连网",
+                  "value": "无法连网"
+                },
+                {
+                  "label": "VPN 连不上",
+                  "value": "VPN 连不上"
+                },
+                {
+                  "label": "网速慢",
+                  "value": "网速慢"
+                },
+                {
+                  "label": "Wi-Fi 账号",
+                  "value": "Wi-Fi 账号"
+                }
+              ]
+            }
+          },
+          {
+            "id": "field_location",
+            "type": "Input",
+            "name": "location",
+            "label": "所在位置",
+            "tips": "",
+            "description": "例如 3 楼会议室、居家",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_device",
+            "type": "Input",
+            "name": "device",
+            "label": "设备与系统",
+            "tips": "",
+            "description": "例如 MacBook / macOS 15",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          },
+          {
+            "id": "field_summary",
+            "type": "TextArea",
+            "name": "summary",
+            "label": "现象描述",
+            "tips": "",
+            "description": "",
+            "rule": "REQ",
+            "block": true,
+            "hidden": false,
+            "props": {}
+          }
+        ]
+      }
+    ],
+    "actions": {
+      "showSubmit": false,
+      "showReset": false,
+      "showCancel": false,
+      "submitText": "",
+      "resetText": "",
+      "cancelText": "",
+      "align": "center",
+      "gap": 16
+    }
+  }
+}
