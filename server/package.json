@@ -43,7 +43,7 @@
     "@fastify/websocket": "^11.2.0",
     "@kne/fastify-account": "^2.0.10",
     "@kne/fastify-aliyun": "^1.1.7",
-    "@kne/fastify-app-runtime": "^0.1.1",
+    "@kne/fastify-app-runtime": "^0.1.2",
     "@kne/fastify-file-manager": "^3.0.8",
     "@kne/fastify-group": "^0.2.6",
     "@kne/fastify-im": "^0.2.2",
