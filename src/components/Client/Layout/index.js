@@ -6,6 +6,7 @@ import '@kne/system-layout/dist/index.css';
 
 import withLocale from '../withLocale';
 import { useIntl } from '@kne/react-intl';
+import { getPublicBasePath } from '../../../commons/publicUrl';
 
 const Layout = createWithRemoteLoader({
   modules: [
@@ -25,6 +26,10 @@ const Layout = createWithRemoteLoader({
             return (
 
               <SystemLayout
+                logo={{
+                  src: `${getPublicBasePath()}/favicon.svg`,
+                  alt: '多租户工单系统'
+                }}
                 userInfo={userInfo}
                 background={'linear-gradient(180deg, #E8DCDF, #E1D1E3, #DED7EF, #D5E0F1)'}
                 menu={{
