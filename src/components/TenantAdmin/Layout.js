@@ -1,5 +1,9 @@
 import { createWithRemoteLoader } from '@kne/remote-loader';
-import { LogoutOutlined, PartitionOutlined, SafetyCertificateOutlined, UserOutlined, UserSwitchOutlined } from '@ant-design/icons';
+import LogoutOutlined from '@ant-design/icons/LogoutOutlined';
+import PartitionOutlined from '@ant-design/icons/PartitionOutlined';
+import SafetyCertificateOutlined from '@ant-design/icons/SafetyCertificateOutlined';
+import UserOutlined from '@ant-design/icons/UserOutlined';
+import UserSwitchOutlined from '@ant-design/icons/UserSwitchOutlined';
 
 import { Outlet } from 'react-router-dom';
 import withLocale from './withLocale';
