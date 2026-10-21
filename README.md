@@ -43,7 +43,7 @@ npm start
 ## 检查
 
 ```bash
-cd server && node --test test/ticket-rules.test.js
+cd server && npm test
 ```
 
 ## 构建
