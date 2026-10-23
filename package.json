@@ -1,6 +1,6 @@
 {
   "name": "@kne/micro-ticket",
-  "version": "0.1.25",
+  "version": "0.1.28",
   "description": "多租户工单系统",
   "scripts": {
     "init": "node scripts/post-init.js && npm run init-server && husky && npx @kne/npm-tools deployPrompts fastify-project",
@@ -67,7 +67,6 @@
     }
   },
   "devDependencies": {
-    "@craco/craco": "^7.1.0",
     "@kne/craco": "^7.1.4",
     "@kne/modules-dev": "^2.4.17",
     "@kne/react-fetch": "^1.5.7",

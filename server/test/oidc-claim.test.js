@@ -1,5 +1,4 @@
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
+const { expect } = require('chai');
 const createClaimer = require('../libs/oidc-claim');
 
 const createFastify = ({ tenantUsers, users, profile, idp = null, serviceEnabled = true }) => {
@@ -41,42 +40,41 @@ const createFastify = ({ tenantUsers, users, profile, idp = null, serviceEnabled
   return { fastify, updates, profileCalls };
 };
 
-test('central 模式新用户无租户时，按邮箱认领旧账号的租户成员关系', async () => {
-  const tenantUsers = [{ id: 'tu1', userId: 'old-1' }];
-  const { fastify, updates } = createFastify({ tenantUsers, users: [{ id: 'old-1', email: 'a@x.com' }], profile: { email: 'a@x.com' } });
-  await createClaimer(fastify)({ user: { userId: 'new-1' } });
-  assert.equal(tenantUsers[0].userId, 'new-1');
-  assert.deepEqual(
-    updates.map(([model]) => model),
-    ['user', 'userDefault']
-  );
-});
+describe('oidc claim', () => {
+  it('should claim tenant membership of old account by email when central user has no tenant', async () => {
+    const tenantUsers = [{ id: 'tu1', userId: 'old-1' }];
+    const { fastify, updates } = createFastify({ tenantUsers, users: [{ id: 'old-1', email: 'a@x.com' }], profile: { email: 'a@x.com' } });
+    await createClaimer(fastify)({ user: { userId: 'new-1' } });
+    expect(tenantUsers[0].userId).to.equal('new-1');
+    expect(updates.map(([model]) => model)).to.deep.equal(['user', 'userDefault']);
+  });
 
-test('已有租户成员关系、legacy 令牌、standalone 模式都不认领', async () => {
-  const tenantUsers = [
-    { id: 'tu1', userId: 'old-1' },
-    { id: 'tu2', userId: 'new-1' }
-  ];
-  const users = [{ id: 'old-1', email: 'a@x.com' }];
-  const profile = { email: 'a@x.com' };
+  it('should not claim when user has tenant, token is legacy or mode is standalone', async () => {
+    const tenantUsers = [
+      { id: 'tu1', userId: 'old-1' },
+      { id: 'tu2', userId: 'new-1' }
+    ];
+    const users = [{ id: 'old-1', email: 'a@x.com' }];
+    const profile = { email: 'a@x.com' };
 
-  const withTenant = createFastify({ tenantUsers, users, profile });
-  await createClaimer(withTenant.fastify)({ user: { userId: 'new-1' } });
-  assert.equal(withTenant.updates.length, 0);
+    const withTenant = createFastify({ tenantUsers, users, profile });
+    await createClaimer(withTenant.fastify)({ user: { userId: 'new-1' } });
+    expect(withTenant.updates).to.have.lengthOf(0);
 
-  const legacy = createFastify({ tenantUsers: [{ id: 'tu1', userId: 'old-1' }], users, profile });
-  await createClaimer(legacy.fastify)({ user: { userId: 'old-1', legacy: true } });
-  assert.equal(legacy.profileCalls.length, 0);
+    const legacy = createFastify({ tenantUsers: [{ id: 'tu1', userId: 'old-1' }], users, profile });
+    await createClaimer(legacy.fastify)({ user: { userId: 'old-1', legacy: true } });
+    expect(legacy.profileCalls).to.have.lengthOf(0);
 
-  const standalone = createFastify({ tenantUsers: [{ id: 'tu1', userId: 'old-1' }], users, profile, idp: {} });
-  await createClaimer(standalone.fastify)({ user: { userId: 'new-1' } });
-  assert.equal(standalone.profileCalls.length, 0);
-});
+    const standalone = createFastify({ tenantUsers: [{ id: 'tu1', userId: 'old-1' }], users, profile, idp: {} });
+    await createClaimer(standalone.fastify)({ user: { userId: 'new-1' } });
+    expect(standalone.profileCalls).to.have.lengthOf(0);
+  });
 
-test('同一用户并发请求只认领一次，之后不再查询', async () => {
-  const { fastify, profileCalls } = createFastify({ tenantUsers: [{ id: 'tu1', userId: 'old-1' }], users: [{ id: 'old-1', email: 'a@x.com' }], profile: { email: 'a@x.com' } });
-  const claim = createClaimer(fastify);
-  await Promise.all([claim({ user: { userId: 'new-1' } }), claim({ user: { userId: 'new-1' } })]);
-  await claim({ user: { userId: 'new-1' } });
-  assert.equal(profileCalls.length, 1);
+  it('should claim only once for concurrent requests of the same user', async () => {
+    const { fastify, profileCalls } = createFastify({ tenantUsers: [{ id: 'tu1', userId: 'old-1' }], users: [{ id: 'old-1', email: 'a@x.com' }], profile: { email: 'a@x.com' } });
+    const claim = createClaimer(fastify);
+    await Promise.all([claim({ user: { userId: 'new-1' } }), claim({ user: { userId: 'new-1' } })]);
+    await claim({ user: { userId: 'new-1' } });
+    expect(profileCalls).to.have.lengthOf(1);
+  });
 });

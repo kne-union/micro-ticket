@@ -97,7 +97,7 @@ const globalInit = async () => {
       'components-admin': {
         ...registry,
         remote: 'components-admin',
-        defaultVersion: '1.1.117'
+        defaultVersion: '1.1.131'
       },
       'components-thirdparty': {
         ...registry,
@@ -226,6 +226,7 @@ const globalInit = async () => {
       remoteApis,
       {
         file: {
+          staticUrl: baseApiUrl,
           contentWindowUrl: 'https://cdn.leapin-ai.com/components/@kne/iframe-resizer/0.1.3/dist/contentWindow.js',
           pdfjsUrl: 'https://cdn.leapin-ai.com/components/pdfjs-dist/5.4.296',
           getUrl: {
