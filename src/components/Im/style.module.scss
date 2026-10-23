@@ -1,5 +1,40 @@
 @use '~@kne/responsive-utils/scss' as resp;
 
+.shell {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
+.tabs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chatPane {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.im {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+}
+
 .page {
   display: flex;
   flex: 1 1 auto;
@@ -36,10 +71,6 @@
 .thread:only-child {
   flex: 1 1 auto;
   width: 100%;
-}
-
-.switcher {
-  padding: 4px 4px 8px;
 }
 
 .list {
@@ -132,12 +163,6 @@
   background: #ff4d4f;
 }
 
-.readAll {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 4px;
-}
-
 .thread {
   display: flex;
   flex: 1;
@@ -158,15 +183,6 @@
   padding: 0 8px;
 }
 
-.headerName {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 600;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 .ticketPane {
   display: flex;
   flex: 1;
@@ -181,18 +197,6 @@
   color: rgba(17, 24, 39, 0.88);
   line-height: 1.6;
   white-space: pre-wrap;
-}
-
-.messages {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 4px 8px;
-}
-
-.composer {
-  margin: 0 12px 12px;
-  padding: 0;
 }
 
 .empty,
@@ -231,7 +235,8 @@
   }
 
   .rail,
-  .thread {
+  .thread,
+  .chatPane {
     border-radius: 10px;
   }
 }

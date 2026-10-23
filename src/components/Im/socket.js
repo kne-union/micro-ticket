@@ -7,13 +7,22 @@ export const authFetch = async (url, init = {}) => {
   return fetch(url, Object.assign({}, init, { headers: Object.assign({}, init.headers, headers) }));
 };
 
-export const openImSocket = onEvent => {
-  // WebSocket 只在握手时校验令牌；OidcAuthenticate 保证渲染时已有可用令牌
-  const token = getOidcClient()?.getTokenSet()?.accessToken;
+export const openImSocket = async onEvent => {
+  // IM 身份是当前租户成员，令牌由会话接口签发，只在握手时校验
+  const response = await authFetch(apiUrl('/api/v1/ticket/im/session'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}'
+  });
+  const body = await response.json();
+  const token = body?.data?.wsToken;
+  if (!token) {
+    throw new Error(body?.msg || '消息连接失败');
+  }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = process.env.NODE_ENV === 'development' ? 'localhost:8049' : window.location.host;
   const base = window.runtimeApiUrl ? new URL(String(window.runtimeApiUrl), window.location.href).href.replace(/^http/, 'ws').replace(/\/$/, '') : `${protocol}//${host}`;
-  const socket = new WebSocket(`${base}/api/v1/im/ws?token=${encodeURIComponent(token || '')}`);
+  const socket = new WebSocket(`${base}/api/v1/im/ws?token=${encodeURIComponent(token)}`);
   socket.addEventListener('message', event => {
     try {
       onEvent(JSON.parse(event.data));
@@ -26,11 +35,4 @@ export const openImSocket = onEvent => {
 
 export const refreshImUnread = () => {
   window.dispatchEvent(new CustomEvent('im-unread-refresh'));
-};
-
-export const sendSocket = (socket, type, payload) => {
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    return;
-  }
-  socket.send(JSON.stringify({ type, payload }));
 };

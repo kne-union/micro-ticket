@@ -30,7 +30,8 @@ const ImSocket = ({ baseUrl = '', onUnread }) => {
     };
     publishUnread();
     window.addEventListener('im-unread-refresh', publishUnread);
-    const socket = openImSocket(event => {
+    let socket = null;
+    openImSocket(event => {
       if (event.type === 'unreadCount' || event.type === 'unreadCountUpdated' || event.type === 'unreadSystemCount' || event.type === 'systemMessage' || event.type === 'newMessage') {
         publishUnread();
       }
@@ -57,11 +58,19 @@ const ImSocket = ({ baseUrl = '', onUnread }) => {
           }
         }
       });
-    });
+    })
+      .then(next => {
+        if (closed) {
+          next.close();
+          return;
+        }
+        socket = next;
+      })
+      .catch(error => console.error(error));
     return () => {
       closed = true;
       window.removeEventListener('im-unread-refresh', publishUnread);
-      socket.close();
+      socket?.close();
     };
   }, [baseUrl, navigate]);
 

@@ -104,6 +104,11 @@ const globalInit = async () => {
         remote: 'components-thirdparty',
         defaultVersion: '0.1.50'
       },
+      'components-trtc-conference': {
+        ...registry,
+        remote: 'components-trtc-conference',
+        defaultVersion: '1.1.27'
+      },
       'fastify-app':
         process.env.NODE_ENV === 'development'
           ? {
