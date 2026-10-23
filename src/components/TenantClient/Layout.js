@@ -7,6 +7,7 @@ import withLocale from './withLocale';
 import { useIntl } from '@kne/react-intl';
 import { withPublicUrl } from '../../commons/publicUrl';
 import ImSocket from '../Im/ImSocket';
+import ImConnection from '../Im/ImConnection';
 import { CompanyMenuIcon, HomeMenuIcon, LogoutMenuIcon, MailMenuIcon, OrgMenuIcon, PermissionMenuIcon, SwitchTenantMenuIcon, TicketMenuIcon, UserMenuIcon } from './MenuIcons';
 
 const COMPANY = ['setting:company-setting', 'setting:company-setting:view'];
@@ -141,6 +142,7 @@ const TenantClientMenu = ({ baseUrl, tenant, tenantUserInfo, logout, formatMessa
       }}
     >
       <ImSocket baseUrl={baseUrl} onUnread={setMessageCount} />
+      <ImConnection />
       {children}
     </SystemLayout>
   );

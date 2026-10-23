@@ -79,7 +79,19 @@ module.exports = fp(async (fastify, options) => {
   });
 
   fastify.post(`${prefix}/chat/open`, { onRequest }, async request => {
-    return services().openColleagueChat(actorOf(request), request.body || {}, request.userInfo?.id);
+    return services().openColleagueChat(actorOf(request), request.body || {});
+  });
+
+  fastify.get(`${prefix}/chat/conversations`, { onRequest }, async request => {
+    return services().listChatConversations(actorOf(request));
+  });
+
+  fastify.post(`${prefix}/im/session`, { onRequest }, async request => {
+    const tenantUserId = String(actorOf(request).id);
+    return {
+      wsToken: fastify.jwt.sign({ imTenantUserId: tenantUserId }, { expiresIn: '5m' }),
+      userId: tenantUserId
+    };
   });
 
   fastify.post(`${prefix}/template/set-enabled`, { onRequest }, async request => {

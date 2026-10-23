@@ -82,7 +82,7 @@ module.exports = fp(async fastify => {
               type: 'ticket',
               title,
               content,
-              targetUserId: String(user.userId),
+              targetUserId: String(user.id),
               props: { ticketId: toId(ticket.id), no: ticket.no }
             }).catch(error => {
               fastify.log.error({ err: error, ticketId: toId(ticket.id) }, '工单通知发送失败');
@@ -1047,7 +1047,7 @@ module.exports = fp(async fastify => {
     return record;
   };
 
-  const openColleagueChat = async (actor, { tenantUserId }, accountUserId) => {
+  const openColleagueChat = async (actor, { tenantUserId }) => {
     const target = await fastify.tenant.models.tenantUser.findOne({
       where: { id: toId(tenantUserId), tenantId: tenantIdOf(actor), status: 'open' },
       attributes: ['id', 'userId', 'name']
@@ -1055,14 +1055,49 @@ module.exports = fp(async fastify => {
     if (!target?.userId) {
       throw httpError(400, '对方还不能收消息');
     }
-    if (String(target.userId) === String(accountUserId)) {
+    if (String(target.id) === String(actorIdOf(actor))) {
       throw httpError(400, '不能和自己聊天');
     }
     if (!fastify.im?.services?.conversation?.createSingleConversation) {
       throw httpError(500, '即时通讯未启用');
     }
-    const conversation = await fastify.im.services.conversation.createSingleConversation(String(accountUserId), String(target.userId));
+    const conversation = await fastify.im.services.conversation.createSingleConversation(String(actorIdOf(actor)), String(target.id));
     return { conversation };
+  };
+
+  const listChatConversations = async actor => {
+    const callEnabled = !!fastify.trtc;
+    if (!fastify.im?.services?.conversation?.getConversations) {
+      return { list: [], callEnabled };
+    }
+    const selfId = String(actorIdOf(actor));
+    const list = (await fastify.im.services.conversation.getConversations(selfId, 1, 100)).filter(item => item.type === 'single');
+    const peerIdOf = item => (item.members || []).map(member => String(member.userId || '')).find(id => id && id !== selfId);
+    const peerIds = [...new Set(list.map(peerIdOf).filter(Boolean))];
+    const peers = peerIds.length
+      ? await fastify.tenant.models.tenantUser.findAll({
+          where: { id: { [Op.in]: peerIds }, tenantId: tenantIdOf(actor) },
+          attributes: ['id', 'name', 'email', 'avatar']
+        })
+      : [];
+    const peerMap = new Map(peers.map(item => [String(item.id), item]));
+    const rows = list
+      .map(item => {
+        const peer = peerMap.get(peerIdOf(item));
+        if (!peer) {
+          return null;
+        }
+        return {
+          id: String(item.id),
+          name: peer.name || peer.email || '同事',
+          avatar: peer.avatar || '',
+          userId: String(peer.id),
+          contactId: String(peer.id),
+          unread: item.unreadCount || 0
+        };
+      })
+      .filter(Boolean);
+    return { list: rows, callEnabled };
   };
 
   const listMentionUsers = async actor => {
@@ -1345,6 +1380,7 @@ module.exports = fp(async fastify => {
     requestInfo,
     submitInfo,
     openColleagueChat,
+    listChatConversations,
     setTemplateEnabled,
     listTickets,
     createTicket,

@@ -10,6 +10,7 @@ import withLocale from './withLocale';
 import { useIntl } from '@kne/react-intl';
 import { withPublicUrl } from '../../commons/publicUrl';
 import ImSocket from '../Im/ImSocket';
+import ImConnection from '../Im/ImConnection';
 import { TICKET_PERMISSION, hasAny } from '../Ticket/permissions';
 
 const Layout = createWithRemoteLoader({
@@ -75,6 +76,7 @@ const TenantAdminFrame = ({ CoreLayout, usePermissions, baseUrl, formatMessage, 
       }}
     >
       <ImSocket baseUrl={baseUrl} />
+      <ImConnection />
       {children || <Outlet />}
     </CoreLayout>
   );

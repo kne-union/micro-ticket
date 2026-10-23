@@ -208,39 +208,50 @@ const createServer = () => {
         ]
       });
       await fastify.register(require('@fastify/websocket'));
+      // IM 身份是租户成员而不是账号：同一账号在不同租户是不同成员，会话、未读与通知按租户隔离
       const bindImUser = async request => {
-        if (request.userInfo?.id && !request.userInfo.userId) {
-          request.userInfo.userId = String(request.userInfo.id);
-        }
+        request.userInfo.userId = String(request.tenantUserInfo.id);
       };
+      const imAuthenticate = [fastify.tenant.authenticate.user, fastify.tenant.authenticate.tenantUser, bindImUser];
+      const trtcEnabled = !!(fastify.config.APP_ID && fastify.config.APP_SECRET);
+      if (trtcEnabled) {
+        await fastify.register(require('@kne/fastify-trtc'), {
+          prefix: `${options.prefix}/trtc`,
+          appId: fastify.config.APP_ID,
+          appSecret: fastify.config.APP_SECRET,
+          getAuthenticate: () => [
+            async () => {
+              const error = new Error('接口禁止访问');
+              error.statusCode = 403;
+              throw error;
+            }
+          ]
+        });
+      }
       await fastify.register(require('@kne/fastify-im'), {
         prefix: `${options.prefix}/im`,
-        getAuthenticate: () => [fastify.tenant.authenticate.user, fastify.tenant.authenticate.tenantUser, bindImUser],
+        getUserModel: () => fastify.tenant.models.tenantUser,
+        getAuthenticate: () => imAuthenticate,
+        // 令牌由 /ticket/im/session 签发，只在握手时校验
         verifyToken: async token => {
-          const resolveUserPayload = async () => {
-            try {
-              const payload = await fastify.oidc.verifier.verifyAccessToken(token);
-              return (await fastify.oidc.revocation.isRevoked(payload)) ? null : { id: payload.sub };
-            } catch (e) {
-              const info = await fastify.jwt.verify(token);
-              return info.payload;
-            }
-          };
-          const userPayload = await resolveUserPayload();
-          if (!userPayload) {
-            return null;
-          }
-          const user = await fastify.account.services.user.getUser(userPayload);
-          if (!user || !(user.status === 0 || user.status === 1)) {
+          const { imTenantUserId } = fastify.jwt.verify(token) || {};
+          const tenantUser = imTenantUserId ? await fastify.tenant.models.tenantUser.findByPk(imTenantUserId) : null;
+          if (!tenantUser || tenantUser.status !== 'open') {
             return null;
           }
           return {
-            userId: String(user.id),
+            userId: String(tenantUser.id),
             role: 'member',
-            nickname: user.nickname || user.email || user.id,
-            avatar: user.avatar || ''
+            nickname: tenantUser.name || tenantUser.email || String(tenantUser.id),
+            avatar: tenantUser.avatar || ''
           };
-        }
+        },
+        trtc: trtcEnabled
+          ? {
+              authenticate: imAuthenticate,
+              resolveUser: request => String(request.tenantUserInfo.id)
+            }
+          : false
       });
       await fastify.sequelize.sync();
       if (fastify.project?.services?.ticketBase?.ensureDefaults) {
