@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#4183F0" />
   <meta name="description" content="Powered By KneUnion Fastify App" />
-  <link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon.svg" />
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/favicon-192x192.png" />
   <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
@@ -21,10 +21,58 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-  <title>[remote-project/micro-ticket] - KneUnion</title>
+  <title>多租户工单系统</title>
+  <style>
+    #app-boot {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: #f6f7f9;
+    }
+
+    #app-boot img {
+      width: 72px;
+      height: 72px;
+    }
+
+    #app-boot-name {
+      font-size: 16px;
+      line-height: 24px;
+      font-weight: 500;
+      color: rgba(0, 0, 0, 0.88);
+    }
+  </style>
 </head>
 
 <body>
+  <div id="app-boot">
+    <img id="app-boot-logo" alt="" src="%PUBLIC_URL%/favicon.svg" />
+    <div id="app-boot-name"></div>
+  </div>
+  <script>
+    (function () {
+      var base = String(window.runtimePublicUrl || '').replace(/\/+$/, '');
+      if (base === '/') {
+        base = '';
+      }
+      var img = document.getElementById('app-boot-logo');
+      if (base && img) {
+        var src = img.getAttribute('src') || '';
+        if (src.charAt(0) === '/' && src.indexOf(base + '/') !== 0) {
+          img.src = base + src;
+        }
+      }
+      var name = document.getElementById('app-boot-name');
+      if (name) {
+        name.textContent = document.title;
+      }
+    })();
+  </script>
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
   <!--
