@@ -14,14 +14,11 @@ BEGIN
     ALTER TABLE t_micro_ticket_task
       ADD COLUMN IF NOT EXISTS "completed_at" TIMESTAMP WITH TIME ZONE;
     COMMENT ON COLUMN t_micro_ticket_task."completed_at" IS '任务完成时间';
+
+    -- 表不存在时语句解析即报错，必须放在判断块内
+    UPDATE t_micro_ticket_task
+    SET "started_at" = created_at
+    WHERE "started_at" IS NULL
+    AND status IN ('running', 'waiting', 'success', 'failed', 'canceled');
   END IF;
 END $$;
-
-UPDATE t_micro_ticket_task
-SET "started_at" = created_at
-WHERE EXISTS (
-  SELECT 1 FROM information_schema.tables
-  WHERE table_schema = 'public' AND table_name = 't_micro_ticket_task'
-)
-AND "started_at" IS NULL
-AND status IN ('running', 'waiting', 'success', 'failed', 'canceled');

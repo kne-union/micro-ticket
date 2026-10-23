@@ -143,7 +143,10 @@ const createServer = () => {
       fastify.register(require('@kne/fastify-oidc'), {
         selfClient: { clientName: 'micro-ticket' },
         origin: fastify.config.ORIGIN,
-        keyEncryptionSecret: fastify.config.OIDC_KEY_SECRET
+        keyEncryptionSecret: fastify.config.OIDC_KEY_SECRET,
+        // 部署到应用中心时宿主注入 OIDC_APP_CODE 等，工单带本地租户数据，以 independent 模式托管宿主租户
+        tenant: () => fastify.tenant,
+        app: { tenantMode: 'independent' }
       });
     })
   );
