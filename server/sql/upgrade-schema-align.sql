@@ -83,23 +83,32 @@ BEGIN
   END IF;
 END $$;
 
--- IM 会话 last_seq 回填为消息最大 seq
-UPDATE t_micro_ticket_im_conversation c
-SET last_seq = COALESCE((
-  SELECT MAX(m.seq) FROM t_micro_ticket_im_message m
-  WHERE m.conversation_id = c.id AND m.deleted_at IS NULL AND m.seq IS NOT NULL
-), 0)
-WHERE EXISTS (
-  SELECT 1 FROM information_schema.columns
-  WHERE table_schema = 'public' AND table_name = 't_micro_ticket_im_conversation' AND column_name = 'last_seq'
-);
+-- 回填：表不存在时语句解析即报错，必须放在判断块内
+DO $$
+BEGIN
+  -- IM 会话 last_seq 回填为消息最大 seq
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 't_micro_ticket_im_conversation' AND column_name = 'last_seq'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 't_micro_ticket_im_message' AND column_name = 'seq'
+  ) THEN
+    UPDATE t_micro_ticket_im_conversation c
+    SET last_seq = COALESCE((
+      SELECT MAX(m.seq) FROM t_micro_ticket_im_message m
+      WHERE m.conversation_id = c.id AND m.deleted_at IS NULL AND m.seq IS NOT NULL
+    ), 0);
+  END IF;
 
--- task started_at 回填
-UPDATE t_micro_ticket_task
-SET "started_at" = created_at
-WHERE "started_at" IS NULL
-  AND status IN ('running', 'waiting', 'success', 'failed', 'canceled')
-  AND EXISTS (
+  -- task started_at 回填
+  IF EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 't_micro_ticket_task' AND column_name = 'started_at'
-  );
+  ) THEN
+    UPDATE t_micro_ticket_task
+    SET "started_at" = created_at
+    WHERE "started_at" IS NULL
+      AND status IN ('running', 'waiting', 'success', 'failed', 'canceled');
+  END IF;
+END $$;
